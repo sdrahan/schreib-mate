@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class DailySochinenieDeApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(DailySochinenieDeApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(DailySochinenieDeApplication.class, args);
+    }
 
 }
