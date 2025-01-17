@@ -5,6 +5,7 @@ import com.serhiidrahan.daily_sochinenie_de.service.ChatGPTService;
 import com.serhiidrahan.daily_sochinenie_de.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.BotSession;
@@ -22,20 +23,22 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
 
-    private final TelegramClient telegramClient;
+    private TelegramClient telegramClient;
     private final UserService userService;
     private final ChatGPTService chatGPTService;
+    private final String botToken;
 
-    public SochinenieBot(UserService userService, ChatGPTService chatGPTService) {
+    public SochinenieBot(UserService userService, ChatGPTService chatGPTService, @Value("${telegrambot.token}") String botToken) {
         this.userService = userService;
         this.chatGPTService = chatGPTService;
+        this.botToken = botToken;
 
         telegramClient = new OkHttpTelegramClient(getBotToken());
     }
 
     @Override
     public String getBotToken() {
-        return "";
+        return botToken;
     }
 
     @Override
