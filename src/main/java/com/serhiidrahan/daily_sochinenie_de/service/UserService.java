@@ -2,6 +2,8 @@ package com.serhiidrahan.daily_sochinenie_de.service;
 
 import com.serhiidrahan.daily_sochinenie_de.entity.User;
 import com.serhiidrahan.daily_sochinenie_de.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,11 +11,17 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
 
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
+    }
+
+    public boolean userExists(Long telegramUserId) {
+        Optional<User> existingUser = userRepository.findByTelegramId(telegramUserId);
+        return existingUser.isPresent();
     }
 
     @Transactional

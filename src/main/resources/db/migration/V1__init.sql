@@ -1,3 +1,16 @@
+CREATE TABLE assignment_topic
+(
+    id                 BIGINT AUTO_INCREMENT,
+    creation_date      DATETIME     NULL,
+    last_modified_date DATETIME     NULL,
+    topic_de           VARCHAR(255) NOT NULL,
+    topic_ru           VARCHAR(255) NOT NULL,
+    description_de     TEXT         NOT NULL,
+    description_ru     TEXT         NOT NULL,
+    active             BOOLEAN DEFAULT TRUE,
+    CONSTRAINT pk_assignment_topic_id PRIMARY KEY (id)
+);
+
 CREATE TABLE user
 (
     id                 BIGINT AUTO_INCREMENT,
@@ -16,8 +29,9 @@ CREATE TABLE assignment
     creation_date      DATETIME     NULL,
     last_modified_date DATETIME     NULL,
     user_id            BIGINT       NOT NULL,
-    topic              VARCHAR(255) NOT NULL,
+    topic_id           BIGINT       NOT NULL,
     state              VARCHAR(100) NOT NULL,
     CONSTRAINT pk_assignment_id PRIMARY KEY (id),
-    CONSTRAINT fk_assignment_user_id FOREIGN KEY (user_id) REFERENCES user (id)
+    CONSTRAINT fk_assignment_user_id FOREIGN KEY (user_id) REFERENCES user (id),
+    CONSTRAINT fk_assignment_assignment_topic_id FOREIGN KEY (topic_id) REFERENCES assignment_topic (id)
 );
