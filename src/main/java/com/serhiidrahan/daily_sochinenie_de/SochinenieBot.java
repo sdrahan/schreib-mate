@@ -17,6 +17,7 @@ import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -26,6 +27,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -82,24 +84,25 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
 
-        if (incomingMessageText.equalsIgnoreCase("new")) {
-            assignNewAssignment(chatId, user);
-            return;
-        }
-
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
         assignmentService.changeAssignmentState(currentAssignment, AssignmentState.SUBMITTED);
+        removeInlineKeyboard(currentAssignment.getTelegramMessageId(), chatId);
 
         String feedback = chatGPTService.getFeedback(incomingMessageText);
-        sendMessageWithButton(chatId, feedback + "\n\nWould you like a new assignment?", "I'm done, give me another", "new_assignment");
+        Message sentMessage = sendMessageWithButton(chatId, feedback + "\n\nWould you like a new assignment?", "I'm done, give me another", "new_assignment");
+        assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
     }
 
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
         String callbackData = callbackQuery.getData();
         long chatId = callbackQuery.getMessage().getChatId();
+        int messageId = callbackQuery.getMessage().getMessageId(); // Message ID of the button message
         Long telegramUserId = callbackQuery.getFrom().getId();
         String telegramUsername = callbackQuery.getFrom().getUserName();
         User user = userService.getUser(telegramUserId, telegramUsername, chatId);
+
+        // Remove the button after pressing
+        removeInlineKeyboard(messageId, chatId);
 
         if (callbackData.equals("new_assignment")) {
             assignNewAssignment(chatId, user);
@@ -126,14 +129,15 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                 assignment.getTopic().getTopicDe(),
                 assignment.getTopic().getDescriptionDe());
 
-        sendMessageWithButton(chatId, assignmentText, "I want another one", "new_assignment");
+        Message message = sendMessageWithButton(chatId, assignmentText, "I want another one", "new_assignment");
+        assignmentService.setTelegramMessageId(assignment, message.getMessageId());
     }
 
     private void sendMessage(Long chatId, String text) {
         SendMessage message = SendMessage.builder()
                 .chatId(chatId)
                 .text(text)
-                .parseMode("Markdown") // Allow bold formatting
+                .parseMode("Markdown")
                 .build();
         try {
             telegramClient.execute(message);
@@ -142,7 +146,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         }
     }
 
-    private void sendMessageWithButton(Long chatId, String text, String buttonText, String callbackData) {
+    private Message sendMessageWithButton(Long chatId, String text, String buttonText, String callbackData) {
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
                 .keyboardRow(new InlineKeyboardRow(List.of(InlineKeyboardButton.builder()
                         .text(buttonText)
@@ -158,9 +162,23 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                 .build();
 
         try {
-            telegramClient.execute(message);
+            return telegramClient.execute(message);
         } catch (TelegramApiException e) {
             LOGGER.error("Error sending message: {}", e.getMessage(), e);
+        }
+        return null;
+    }
+
+    private void removeInlineKeyboard(int messageId, long chatId) {
+        EditMessageReplyMarkup editMarkup = EditMessageReplyMarkup.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .replyMarkup(new InlineKeyboardMarkup(Collections.emptyList())) // Empty keyboard to remove buttons
+                .build();
+        try {
+            telegramClient.execute(editMarkup);
+        } catch (TelegramApiException e) {
+            LOGGER.error("Error removing inline keyboard: {}", e.getMessage(), e);
         }
     }
 

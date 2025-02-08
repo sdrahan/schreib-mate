@@ -19,6 +19,9 @@ public class Assignment extends BaseEntity {
     @Column(name = "state", nullable = false)
     private AssignmentState state;
 
+    @Column(name = "telegram_message_id")
+    private Integer telegramMessageId;
+
     public User getUser() {
         return user;
     }
@@ -41,5 +44,13 @@ public class Assignment extends BaseEntity {
 
     public void setState(AssignmentState state) {
         this.state = state;
+    }
+
+    public Integer getTelegramMessageId() {
+        return telegramMessageId;
+    }
+
+    public void setTelegramMessageId(Integer telegramMessageId) {
+        this.telegramMessageId = telegramMessageId;
     }
 }

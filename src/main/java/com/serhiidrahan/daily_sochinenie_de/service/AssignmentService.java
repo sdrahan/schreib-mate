@@ -78,6 +78,12 @@ public class AssignmentService {
         return assignmentRepository.save(newAssignment);
     }
 
+    @Transactional
+    public void setTelegramMessageId(Assignment assignment, Integer telegramMessageId) {
+        assignment.setTelegramMessageId(telegramMessageId);
+        assignmentRepository.save(assignment);
+    }
+
     /**
      * Cancels the current active assignment and assigns a new one.
      */
