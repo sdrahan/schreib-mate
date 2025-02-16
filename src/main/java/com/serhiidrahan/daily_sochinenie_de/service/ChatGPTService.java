@@ -31,6 +31,88 @@ public class ChatGPTService {
         this.objectMapper = objectMapper;
     }
 
+    public boolean validateSubmission(String submissionText, String topic) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpPost request = new HttpPost(openAIConfig.getApiUrl());
+            request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
+            request.setHeader("Content-Type", "application/json; charset=UTF-8");
+
+            // Build the payload
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", "gpt-4o");
+
+            ArrayNode messages = objectMapper.createArrayNode();
+            messages.add(objectMapper.createObjectNode()
+                    .put("role", "system")
+                    .put("content", "You are an evaluator. Given a topic and an essay, determine if the essay is related to the topic. If it is, answer only with 'RELATED'. If it is not, answer only with 'NOT RELATED'. Do not include any additional text."));
+            messages.add(objectMapper.createObjectNode()
+                    .put("role", "user")
+                    .put("content", "Topic: " + topic + "\nEssay: " + submissionText));
+            payload.set("messages", messages);
+
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
+
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
+                String result = jsonResponse.get("choices").get(0).get("message").get("content").asText().trim();
+                return result.equalsIgnoreCase("RELATED");
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error during submission validation", e);
+            // In case of error, assume submission is valid (or handle as you see fit)
+            return true;
+        }
+    }
+
+    public String extractTextFromImage(File imageFile) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpPost request = new HttpPost(openAIConfig.getApiUrl());
+            request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
+            request.setHeader("Content-Type", "application/json");
+
+            // Convert image to Base64
+            String base64Image = encodeImageToBase64(imageFile);
+
+            // Create JSON payload for extraction only
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", "gpt-4o");
+
+            ArrayNode messages = objectMapper.createArrayNode();
+            // System message instructs the model to only extract text
+            messages.add(objectMapper.createObjectNode()
+                    .put("role", "system")
+                    .put("content", "You are an OCR tool. Extract only the handwritten text from the image. Provide only the extracted text without any additional commentary."));
+
+            // User message including the image
+            ObjectNode userMessage = objectMapper.createObjectNode();
+            userMessage.put("role", "user");
+            ArrayNode contentArray = objectMapper.createArrayNode();
+            ObjectNode imageObject = objectMapper.createObjectNode();
+            imageObject.put("url", "data:image/jpeg;base64," + base64Image);
+            ObjectNode imageContent = objectMapper.createObjectNode();
+            imageContent.put("type", "image_url");
+            imageContent.set("image_url", imageObject);
+            contentArray.add(imageContent);
+            userMessage.set("content", contentArray);
+            messages.add(userMessage);
+
+            payload.set("messages", messages);
+
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
+
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
+                return jsonResponse.get("choices").get(0).get("message").get("content").asText().trim();
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error extracting text from image through OpenAI API.", e);
+            return "";
+        }
+    }
+
+
     /**
      * Processes a text-based input and provides grammatical feedback.
      */

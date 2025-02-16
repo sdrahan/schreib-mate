@@ -87,8 +87,30 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             String filePath = getFilePath(largestPhoto);
             java.io.File imageFile = downloadPhotoByFilePath(filePath);
 
-            // Process with OpenAI Vision (OCR)
-            String feedback = chatGPTService.getFeedbackFromImage(imageFile);
+            // Extract text from the image
+            String extractedText = chatGPTService.extractTextFromImage(imageFile);
+            if (extractedText.isEmpty()) {
+                sendMessage(chatId, "Couldn't extract text from the image. Please try again.");
+                return;
+            }
+
+            // Retrieve user and current assignment
+            Long telegramUserId = message.getFrom().getId();
+            String telegramUsername = message.getFrom().getUserName();
+            User user = userService.getUser(telegramUserId, telegramUsername, chatId);
+            Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
+            String topic = currentAssignment.getTopic().getTopicDe();
+
+            // Validate the extracted text against the topic
+            boolean isRelated = chatGPTService.validateSubmission(extractedText, topic);
+            if (!isRelated) {
+                sendMessage(chatId, "Your submission doesn't seem to be related to the assignment topic: *"
+                        + topic + "*.\nPlease try again with an essay on this topic.");
+                return;
+            }
+
+            // If validation passes, generate detailed grammatical feedback
+            String feedback = chatGPTService.getFeedback(extractedText);
             sendMessage(chatId, "Here's the extracted text and feedback:\n" + feedback);
         } catch (Exception e) {
             LOGGER.error("Error processing image", e);
@@ -112,19 +134,16 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         if (photo.getFilePath() != null) { // If the file_path is already present, we are done!
             return photo.getFilePath();
         } else { // If not, let find it
-            // We create a GetFile method and set the file_id from the photo
             GetFile getFileMethod = new GetFile(photo.getFileId());
             try {
-                // We execute the method using AbsSender::execute method.
                 File file = telegramClient.execute(getFileMethod);
-                // We now have the file_path
                 return file.getFilePath();
             } catch (TelegramApiException e) {
                 LOGGER.error("error downloading photo", e);
             }
         }
 
-        return null; // Just in case
+        return null;
     }
 
     private void handleTextMessage(Message incomingMessage) {
@@ -144,13 +163,26 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         }
 
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
+        String topic = currentAssignment.getTopic().getTopicDe();
+
+        // First, check if the submission is really related to the assignment topic.
+        boolean isRelated = chatGPTService.validateSubmission(incomingMessageText, topic);
+        if (!isRelated) {
+            sendMessage(chatId, "Your submission doesn't seem to be related to the assignment topic: *"
+                    + topic + "*.\nPlease try again with an essay on this topic.");
+            return;
+        }
+
+        // If valid, mark as submitted and proceed.
         assignmentService.changeAssignmentState(currentAssignment, AssignmentState.SUBMITTED);
         removeInlineKeyboard(currentAssignment.getTelegramMessageId(), chatId);
 
         String feedback = chatGPTService.getFeedback(incomingMessageText);
-        Message sentMessage = sendMessageWithButton(chatId, feedback + "\n\nWould you like a new assignment?", "I'm done, give me another", "new_assignment");
+        Message sentMessage = sendMessageWithButton(chatId, feedback + "\n\nWould you like a new assignment?",
+                "I'm done, give me another", "new_assignment");
         assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
     }
+
 
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
         String callbackData = callbackQuery.getData();
