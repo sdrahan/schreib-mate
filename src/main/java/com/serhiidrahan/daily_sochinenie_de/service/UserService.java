@@ -26,7 +26,7 @@ public class UserService {
     }
 
     @Transactional
-    public User getOrCreateUser(Long telegramUserId, String telegramUsername, Long chatId, String language) {
+    public User getOrCreateUser(Long telegramUserId, String telegramUsername, Long chatId) {
         Optional<User> existingUser = userRepository.findByTelegramId(telegramUserId);
 
         if (existingUser.isPresent()) {
@@ -52,5 +52,9 @@ public class UserService {
         newUser.setChatId(chatId);
         newUser.setLanguage(Language.DE);
         return userRepository.save(newUser);
+    }
+
+    public void save(User user) {
+        userRepository.save(user);
     }
 }

@@ -45,7 +45,8 @@ public class AssignmentService {
         List<Assignment> activeAssignments = assignmentRepository.findAssignmentsByUserIdAndStates(user.getId(), List.of(AssignmentState.ACTIVE, AssignmentState.SUBMITTED));
 
         if (activeAssignments.isEmpty()) {
-            throw new IllegalStateException("No active assignment found.");
+            LOGGER.info("No active assignment found.");
+            return null;
         } else if (activeAssignments.size() > 1) {
             throw new IllegalStateException("Multiple active assignments found for user.");
         }

@@ -3,6 +3,7 @@ package com.serhiidrahan.daily_sochinenie_de;
 import com.serhiidrahan.daily_sochinenie_de.entity.Assignment;
 import com.serhiidrahan.daily_sochinenie_de.entity.User;
 import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
+import com.serhiidrahan.daily_sochinenie_de.enums.Language;
 import com.serhiidrahan.daily_sochinenie_de.service.AssignmentService;
 import com.serhiidrahan.daily_sochinenie_de.service.ChatGPTService;
 import com.serhiidrahan.daily_sochinenie_de.service.UserService;
@@ -98,7 +99,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             Long telegramUserId = message.getFrom().getId();
             String telegramUsername = message.getFrom().getUserName();
             String language = message.getFrom().getLanguageCode();
-            User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
+            User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
             Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
             String topic = currentAssignment.getTopic().getTopicDe();
 
@@ -152,15 +153,17 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         String incomingMessageText = incomingMessage.getText().trim();
         Long telegramUserId = incomingMessage.getFrom().getId();
         String telegramUsername = incomingMessage.getFrom().getUserName();
-        String language = incomingMessage.getFrom().getLanguageCode();
 
         boolean userExists = userService.userExists(telegramUserId);
-        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
+        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
+
+        if (incomingMessageText.equalsIgnoreCase("/language")) {
+            showLanguageSelection(chatId);
+            return;
+        }
 
         if (!userExists || incomingMessageText.equalsIgnoreCase("/start")) {
-            sendMessage(chatId, "Hi! I'm now going to give you your first assignment!");
-            Assignment firstAssignment = assignmentService.assignNewTopic(user);
-            sendAssignment(chatId, firstAssignment);
+            showLanguageSelection(chatId);
             return;
         }
 
@@ -189,17 +192,52 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
         String callbackData = callbackQuery.getData();
         long chatId = callbackQuery.getMessage().getChatId();
-        int messageId = callbackQuery.getMessage().getMessageId(); // Message ID of the button message
+        int messageId = callbackQuery.getMessage().getMessageId();
         Long telegramUserId = callbackQuery.getFrom().getId();
         String telegramUsername = callbackQuery.getFrom().getUserName();
-        String language = callbackQuery.getFrom().getLanguageCode();
-        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
 
-        // Remove the button after pressing
-        removeInlineKeyboard(messageId, chatId);
+        // If the callback is for setting the language:
+        if (callbackData.startsWith("set_language_")) {
+            String langCode = callbackData.substring("set_language_".length());
+            Language selectedLanguage = Language.valueOf(langCode);  // Assumes enum values: EN, RU, DE.
+            // Update the user's language preference.
+            User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
+            user.setLanguage(selectedLanguage);
+            userService.save(user);
+
+            // Remove the language selection keyboard.
+            removeInlineKeyboard(messageId, chatId);
+
+            // Send a confirmation message in the chosen language.
+            String confirmation;
+            switch (selectedLanguage) {
+                case EN:
+                    confirmation = "Language set to English.";
+                    break;
+                case RU:
+                    confirmation = "Язык установлен на Русский.";
+                    break;
+                case DE:
+                    confirmation = "Sprache auf Deutsch eingestellt.";
+                    break;
+                default:
+                    confirmation = "Language updated.";
+            }
+            sendMessage(chatId, confirmation);
+
+            if (assignmentService.getCurrentActiveAssignment(user) == null) {
+                // seems like it was the first-time setup
+                sendMessage(chatId, "Now I'm now going to give you your first assignment!");
+                Assignment firstAssignment = assignmentService.assignNewTopic(user);
+                sendAssignment(chatId, firstAssignment, user.getLanguage());
+            }
+
+            return;
+        }
 
         if (callbackData.equals("new_assignment")) {
-            assignNewAssignment(chatId, user);
+            removeInlineKeyboard(messageId, chatId);
+            assignNewAssignment(chatId, userService.getOrCreateUser(telegramUserId, telegramUsername, chatId));
         }
     }
 
@@ -215,14 +253,38 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         }
 
         Assignment newAssignment = assignmentService.assignNewTopic(user);
-        sendAssignment(chatId, newAssignment);
+        sendAssignment(chatId, newAssignment, user.getLanguage());
     }
 
-    private void sendAssignment(Long chatId, Assignment assignment) {
+    private void showLanguageSelection(long chatId) {
+        String messageText = "Welcome! Please choose your preferred language:\n" +
+                "Добро пожаловать! Пожалуйста, выберите язык:\n" +
+                "Willkommen! Bitte wählen Sie Ihre Sprache:";
+        InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
+                .keyboardRow(new InlineKeyboardRow(List.of(
+                        InlineKeyboardButton.builder().text("🇬🇧 English").callbackData("set_language_EN").build(),
+                        InlineKeyboardButton.builder().text("🇷🇺 Русский").callbackData("set_language_RU").build(),
+                        InlineKeyboardButton.builder().text("🇩🇪 Deutsch").callbackData("set_language_DE").build()
+                )))
+                .build();
+
+        SendMessage message = SendMessage.builder()
+                .chatId(chatId)
+                .text(messageText)
+                .replyMarkup(keyboard)
+                .build();
+        try {
+            telegramClient.execute(message);
+        } catch (TelegramApiException e) {
+            LOGGER.error("Error sending language selection message: {}", e.getMessage(), e);
+        }
+    }
+
+    private void sendAssignment(Long chatId, Assignment assignment, Language language) {
         String assignmentText = String.format("📌 *Your Assignment:*\n*%s*\n\n%s\n\n*Keywords:*\n%s",
-                assignment.getTopic().getTopicDe(),
-                assignment.getTopic().getDescriptionDe(),
-                assignment.getTopic().getKeywordsDe());
+                assignment.getTopic().getTopic(language),
+                assignment.getTopic().getDescription(language),
+                assignment.getTopic().getKeywords(language));
 
         Message message = sendMessageWithButton(chatId, assignmentText, "I want another one", "new_assignment");
         assignmentService.setTelegramMessageId(assignment, message.getMessageId());
