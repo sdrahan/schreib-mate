@@ -1,5 +1,6 @@
 package com.serhiidrahan.daily_sochinenie_de.entity;
 
+import com.serhiidrahan.daily_sochinenie_de.enums.Language;
 import jakarta.persistence.*;
 
 @Entity
@@ -12,11 +13,26 @@ public class AssignmentTopic extends BaseEntity {
     @Column(name = "topic_ru", nullable = false)
     private String topicRu;
 
+    @Column(name = "topic_en", nullable = false)
+    private String topicEn;
+
     @Column(name = "description_de", nullable = false, columnDefinition = "TEXT")
     private String descriptionDe;
 
     @Column(name = "description_ru", nullable = false, columnDefinition = "TEXT")
     private String descriptionRu;
+
+    @Column(name = "description_en", nullable = false, columnDefinition = "TEXT")
+    private String descriptionEn;
+
+    @Column(name = "keywords_de", nullable = false, columnDefinition = "TEXT")
+    private String keywordsDe;
+
+    @Column(name = "keywords_ru", nullable = false, columnDefinition = "TEXT")
+    private String keywordsRu;
+
+    @Column(name = "keywords_en", nullable = false, columnDefinition = "TEXT")
+    private String keywordsEn;
 
     @Column(name = "active", nullable = false)
     private Boolean active = true;
@@ -59,5 +75,69 @@ public class AssignmentTopic extends BaseEntity {
 
     public void setActive(Boolean active) {
         this.active = active;
+    }
+
+    public String getTopicEn() {
+        return topicEn;
+    }
+
+    public void setTopicEn(String topicEn) {
+        this.topicEn = topicEn;
+    }
+
+    public String getDescriptionEn() {
+        return descriptionEn;
+    }
+
+    public void setDescriptionEn(String descriptionEn) {
+        this.descriptionEn = descriptionEn;
+    }
+
+    public String getKeywordsDe() {
+        return keywordsDe;
+    }
+
+    public void setKeywordsDe(String keywordsDe) {
+        this.keywordsDe = keywordsDe;
+    }
+
+    public String getKeywordsRu() {
+        return keywordsRu;
+    }
+
+    public void setKeywordsRu(String keywordsRu) {
+        this.keywordsRu = keywordsRu;
+    }
+
+    public String getKeywordsEn() {
+        return keywordsEn;
+    }
+
+    public void setKeywordsEn(String keywordsEn) {
+        this.keywordsEn = keywordsEn;
+    }
+
+    public String getKeywords(Language language) {
+        return switch (language) {
+            case DE -> keywordsDe;
+            case EN -> keywordsEn;
+            case RU -> keywordsRu;
+        };
+    }
+
+    public String getDescription(Language language) {
+        return switch (language) {
+            case DE -> descriptionDe;
+            case EN -> descriptionEn;
+            case RU -> descriptionRu;
+        };
+    }
+
+    public String getTopic(Language language) {
+        return switch (language) {
+            case DE -> topicDe;
+            case EN -> topicEn;
+            case RU -> topicRu;
+        };
     }
 }

@@ -39,7 +39,7 @@ import java.util.Objects;
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
 
-    private TelegramClient telegramClient;
+    private final TelegramClient telegramClient;
     private final UserService userService;
     private final AssignmentService assignmentService;
     private final ChatGPTService chatGPTService;
@@ -51,7 +51,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         this.assignmentService = assignmentService;
         this.chatGPTService = chatGPTService;
         this.botToken = botToken;
-        telegramClient = new OkHttpTelegramClient(getBotToken());
+        this.telegramClient = new OkHttpTelegramClient(getBotToken());
     }
 
     @Override
@@ -97,7 +97,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             // Retrieve user and current assignment
             Long telegramUserId = message.getFrom().getId();
             String telegramUsername = message.getFrom().getUserName();
-            User user = userService.getUser(telegramUserId, telegramUsername, chatId);
+            String language = message.getFrom().getLanguageCode();
+            User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
             Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
             String topic = currentAssignment.getTopic().getTopicDe();
 
@@ -122,7 +123,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         try {
             return telegramClient.downloadFile(filePath);
         } catch (TelegramApiException e) {
-            LOGGER.error("Error downloading the file from telegram" ,e);
+            LOGGER.error("Error downloading the file from telegram", e);
         }
 
         return null;
@@ -131,15 +132,15 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     public String getFilePath(PhotoSize photo) {
         Objects.requireNonNull(photo);
 
-        if (photo.getFilePath() != null) { // If the file_path is already present, we are done!
+        if (photo.getFilePath() != null) {
             return photo.getFilePath();
-        } else { // If not, let find it
+        } else {
             GetFile getFileMethod = new GetFile(photo.getFileId());
             try {
                 File file = telegramClient.execute(getFileMethod);
                 return file.getFilePath();
             } catch (TelegramApiException e) {
-                LOGGER.error("error downloading photo", e);
+                LOGGER.error("Error getting photo's file path", e);
             }
         }
 
@@ -151,9 +152,10 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         String incomingMessageText = incomingMessage.getText().trim();
         Long telegramUserId = incomingMessage.getFrom().getId();
         String telegramUsername = incomingMessage.getFrom().getUserName();
+        String language = incomingMessage.getFrom().getLanguageCode();
 
         boolean userExists = userService.userExists(telegramUserId);
-        User user = userService.getUser(telegramUserId, telegramUsername, chatId);
+        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
 
         if (!userExists || incomingMessageText.equalsIgnoreCase("/start")) {
             sendMessage(chatId, "Hi! I'm now going to give you your first assignment!");
@@ -190,7 +192,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         int messageId = callbackQuery.getMessage().getMessageId(); // Message ID of the button message
         Long telegramUserId = callbackQuery.getFrom().getId();
         String telegramUsername = callbackQuery.getFrom().getUserName();
-        User user = userService.getUser(telegramUserId, telegramUsername, chatId);
+        String language = callbackQuery.getFrom().getLanguageCode();
+        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId, language);
 
         // Remove the button after pressing
         removeInlineKeyboard(messageId, chatId);
@@ -216,9 +219,10 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void sendAssignment(Long chatId, Assignment assignment) {
-        String assignmentText = String.format("📌 *Your Assignment:*\n*%s*\n\n%s",
+        String assignmentText = String.format("📌 *Your Assignment:*\n*%s*\n\n%s\n\n*Keywords:*\n%s",
                 assignment.getTopic().getTopicDe(),
-                assignment.getTopic().getDescriptionDe());
+                assignment.getTopic().getDescriptionDe(),
+                assignment.getTopic().getKeywordsDe());
 
         Message message = sendMessageWithButton(chatId, assignmentText, "I want another one", "new_assignment");
         assignmentService.setTelegramMessageId(assignment, message.getMessageId());

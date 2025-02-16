@@ -5,8 +5,13 @@ CREATE TABLE assignment_topic
     last_modified_date DATETIME     NULL,
     topic_de           VARCHAR(255) NOT NULL,
     topic_ru           VARCHAR(255) NOT NULL,
+    topic_en           VARCHAR(255) NOT NULL,
     description_de     TEXT         NOT NULL,
     description_ru     TEXT         NOT NULL,
+    description_en     TEXT         NOT NULL,
+    keywords_de        TEXT         NOT NULL,
+    keywords_ru        TEXT         NOT NULL,
+    keywords_en        TEXT         NOT NULL,
     active             BOOLEAN DEFAULT TRUE,
     CONSTRAINT pk_assignment_topic_id PRIMARY KEY (id)
 );
@@ -19,6 +24,7 @@ CREATE TABLE user
     telegram_id        BIGINT,
     telegram_username  VARCHAR(255) NULL,
     chat_id            BIGINT,
+    language           VARCHAR(3) NOT NULL DEFAULT 'DE',
     CONSTRAINT pk_user_id PRIMARY KEY (id),
     CONSTRAINT uq_user_telegram_id UNIQUE (telegram_id)
 );

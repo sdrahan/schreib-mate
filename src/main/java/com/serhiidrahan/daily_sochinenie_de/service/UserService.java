@@ -1,6 +1,7 @@
 package com.serhiidrahan.daily_sochinenie_de.service;
 
 import com.serhiidrahan.daily_sochinenie_de.entity.User;
+import com.serhiidrahan.daily_sochinenie_de.enums.Language;
 import com.serhiidrahan.daily_sochinenie_de.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +26,7 @@ public class UserService {
     }
 
     @Transactional
-    public User getUser(Long telegramUserId, String telegramUsername, Long chatId) {
+    public User getOrCreateUser(Long telegramUserId, String telegramUsername, Long chatId, String language) {
         Optional<User> existingUser = userRepository.findByTelegramId(telegramUserId);
 
         if (existingUser.isPresent()) {
@@ -49,6 +50,7 @@ public class UserService {
         newUser.setTelegramId(telegramUserId);
         newUser.setTelegramUsername(telegramUsername);
         newUser.setChatId(chatId);
+        newUser.setLanguage(Language.DE);
         return userRepository.save(newUser);
     }
 }

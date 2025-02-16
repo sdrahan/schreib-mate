@@ -31,33 +31,41 @@ public class ChatGPTService {
         this.objectMapper = objectMapper;
     }
 
-    public boolean validateSubmission(String submissionText, String topic) {
+    private String executeRequest(ObjectNode payload) throws Exception {
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpPost request = new HttpPost(openAIConfig.getApiUrl());
             request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
             request.setHeader("Content-Type", "application/json; charset=UTF-8");
-
-            // Build the payload
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.put("model", "gpt-4o");
-
-            ArrayNode messages = objectMapper.createArrayNode();
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "system")
-                    .put("content", "You are an evaluator. Given a topic and an essay, determine if the essay is related to the topic. If it is, answer only with 'RELATED'. If it is not, answer only with 'NOT RELATED'. Do not include any additional text."));
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "user")
-                    .put("content", "Topic: " + topic + "\nEssay: " + submissionText));
-            payload.set("messages", messages);
 
             String jsonPayload = objectMapper.writeValueAsString(payload);
             request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
 
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
-                String result = jsonResponse.get("choices").get(0).get("message").get("content").asText().trim();
-                return result.equalsIgnoreCase("RELATED");
+                return jsonResponse.get("choices").get(0).get("message").get("content").asText().trim();
             }
+        }
+    }
+
+    private ObjectNode createMessage(String role, String content) {
+        ObjectNode message = objectMapper.createObjectNode();
+        message.put("role", role);
+        message.put("content", content);
+        return message;
+    }
+
+    public boolean validateSubmission(String submissionText, String topic) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", "gpt-4o");
+
+            ArrayNode messages = objectMapper.createArrayNode();
+            messages.add(createMessage("system", "You are an evaluator. Given a topic and an essay, determine if the essay is related to the topic. If it is, answer only with 'RELATED'. If it is not, answer only with 'NOT RELATED'. Do not include any additional text."));
+            messages.add(createMessage("user", "Topic: " + topic + "\nEssay: " + submissionText));
+            payload.set("messages", messages);
+
+            String result = executeRequest(payload);
+            return result.equalsIgnoreCase("RELATED");
         } catch (Exception e) {
             LOGGER.error("Error during submission validation", e);
             // In case of error, assume submission is valid (or handle as you see fit)
@@ -65,26 +73,20 @@ public class ChatGPTService {
         }
     }
 
+    /**
+     * Extracts text from an image file using OCR.
+     */
     public String extractTextFromImage(File imageFile) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost request = new HttpPost(openAIConfig.getApiUrl());
-            request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
-            request.setHeader("Content-Type", "application/json");
-
-            // Convert image to Base64
+        try {
             String base64Image = encodeImageToBase64(imageFile);
 
-            // Create JSON payload for extraction only
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", "gpt-4o");
 
             ArrayNode messages = objectMapper.createArrayNode();
-            // System message instructs the model to only extract text
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "system")
-                    .put("content", "You are an OCR tool. Extract only the handwritten text from the image. Provide only the extracted text without any additional commentary."));
+            messages.add(createMessage("system", "You are an OCR tool. Extract only the handwritten text from the image. Provide only the extracted text without any additional commentary."));
 
-            // User message including the image
+            // Build user message with an image attachment.
             ObjectNode userMessage = objectMapper.createObjectNode();
             userMessage.put("role", "user");
             ArrayNode contentArray = objectMapper.createArrayNode();
@@ -99,118 +101,33 @@ public class ChatGPTService {
 
             payload.set("messages", messages);
 
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-            request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
-
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
-                return jsonResponse.get("choices").get(0).get("message").get("content").asText().trim();
-            }
+            return executeRequest(payload);
         } catch (Exception e) {
             LOGGER.error("Error extracting text from image through OpenAI API.", e);
             return "";
         }
     }
 
-
     /**
-     * Processes a text-based input and provides grammatical feedback.
+     * Provides grammatical feedback for a text-based input.
      */
     public String getFeedback(String inputText) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost request = new HttpPost(openAIConfig.getApiUrl());
-            request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
-            request.setHeader("Content-Type", "application/json; charset=UTF-8");
-
-            // Create JSON payload
+        try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", "gpt-4o");
 
             ArrayNode messages = objectMapper.createArrayNode();
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "system")
-                    .put("content", "You are a B1 German tutor. Provide grammatical feedback."));
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "user")
-                    .put("content", inputText));
-
+            messages.add(createMessage("system", "You are a B1 German tutor. Provide grammatical feedback."));
+            messages.add(createMessage("user", inputText));
             payload.set("messages", messages);
 
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-            request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
-
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
-                return jsonResponse.get("choices").get(0).get("message").get("content").asText();
-            }
+            return executeRequest(payload);
         } catch (Exception e) {
             LOGGER.error("Error fetching feedback from OpenAI API.", e);
             return "Error fetching feedback. Please try again.";
         }
     }
 
-    /**
-     * Processes an image, extracts handwritten text, and provides feedback.
-     */
-    public String getFeedbackFromImage(File imageFile) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost request = new HttpPost(openAIConfig.getApiUrl());
-            request.setHeader("Authorization", "Bearer " + openAIConfig.getApiKey());
-            request.setHeader("Content-Type", "application/json");  // Ensure JSON content type is set
-
-            // Convert image to base64
-            String base64Image = encodeImageToBase64(imageFile);
-
-            // Create JSON payload
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.put("model", "gpt-4o"); // Ensure correct model that supports vision
-
-            ArrayNode messages = objectMapper.createArrayNode();
-            messages.add(objectMapper.createObjectNode()
-                    .put("role", "system")
-                    .put("content", "You are a B1 German tutor. Extract handwritten text from the image and provide grammatical feedback."));
-
-            // Attach image to the user message
-            ObjectNode userMessage = objectMapper.createObjectNode();
-            userMessage.put("role", "user");
-
-            ArrayNode contentArray = objectMapper.createArrayNode();
-            contentArray.add(objectMapper.createObjectNode().put("type", "text").put("text", "Extract text and provide grammatical feedback."));
-
-            ObjectNode imageObject = objectMapper.createObjectNode();
-            imageObject.put("url", "data:image/jpeg;base64," + base64Image);
-
-            ObjectNode imageContent = objectMapper.createObjectNode();
-            imageContent.put("type", "image_url");
-            imageContent.set("image_url", imageObject);  // Image URL should be an object
-
-            contentArray.add(imageContent);
-            userMessage.set("content", contentArray);
-
-            messages.add(userMessage);
-            payload.set("messages", messages);
-
-            // Convert payload to JSON string
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-            request.setEntity(new StringEntity(jsonPayload, ContentType.APPLICATION_JSON.withCharset("UTF-8")));
-
-            System.out.println(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
-
-            // Execute request
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                JsonNode jsonResponse = objectMapper.readTree(response.getEntity().getContent());
-                return jsonResponse.get("choices").get(0).get("message").get("content").asText();
-            }
-        } catch (Exception e) {
-            LOGGER.error("Error processing image through OpenAI API.", e);
-            return "Error processing image. Please try again.";
-        }
-    }
-
-
-    /**
-     * Converts an image file to a Base64 string.
-     */
     private String encodeImageToBase64(File imageFile) throws Exception {
         byte[] fileContent = Files.readAllBytes(imageFile.toPath());
         return Base64.getEncoder().encodeToString(fileContent);

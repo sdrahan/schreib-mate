@@ -1,4 +1,5 @@
 package com.serhiidrahan.daily_sochinenie_de.entity;
+import com.serhiidrahan.daily_sochinenie_de.enums.Language;
 import jakarta.persistence.*;
 
 @Entity
@@ -15,6 +16,10 @@ public class User extends BaseEntity {
 
     @Column(name = "chat_id")
     private Long chatId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language", nullable = false)
+    private Language language;
 
     public Long getTelegramId() {
         return telegramId;
@@ -38,5 +43,13 @@ public class User extends BaseEntity {
 
     public void setChatId(Long chatId) {
         this.chatId = chatId;
+    }
+
+    public Language getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(Language language) {
+        this.language = language;
     }
 }
