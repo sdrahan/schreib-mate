@@ -16,9 +16,12 @@ import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsume
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.File;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -28,7 +31,9 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
@@ -61,11 +66,65 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
     @Override
     public void consume(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            handleTextMessage(update.getMessage());
+        if (update.hasMessage()) {
+            if (update.getMessage().hasPhoto()) {
+                handlePhotoMessage(update.getMessage());
+            } else if (update.getMessage().hasText()) {
+                handleTextMessage(update.getMessage());
+            }
         } else if (update.hasCallbackQuery()) {
             handleCallbackQuery(update.getCallbackQuery());
         }
+    }
+
+    private void handlePhotoMessage(Message message) {
+        long chatId = message.getChatId();
+        try {
+            // Get the largest resolution photo
+            List<PhotoSize> photos = message.getPhoto();
+            PhotoSize largestPhoto = photos.stream()
+                    .max(Comparator.comparing(PhotoSize::getFileSize)).orElse(null);
+            String filePath = getFilePath(largestPhoto);
+            java.io.File imageFile = downloadPhotoByFilePath(filePath);
+
+            // Process with OpenAI Vision (OCR)
+            String feedback = chatGPTService.getFeedbackFromImage(imageFile);
+            sendMessage(chatId, "Here's the extracted text and feedback:\n" + feedback);
+        } catch (Exception e) {
+            LOGGER.error("Error processing image", e);
+            sendMessage(chatId, "Failed to process the image. Please try again.");
+        }
+    }
+
+    public java.io.File downloadPhotoByFilePath(String filePath) {
+        try {
+            return telegramClient.downloadFile(filePath);
+        } catch (TelegramApiException e) {
+            LOGGER.error("Error downloading the file from telegram" ,e);
+        }
+
+        return null;
+    }
+
+    public String getFilePath(PhotoSize photo) {
+        Objects.requireNonNull(photo);
+
+        if (photo.getFilePath() != null) { // If the file_path is already present, we are done!
+            return photo.getFilePath();
+        } else { // If not, let find it
+            // We create a GetFile method and set the file_id from the photo
+            GetFile getFileMethod = new GetFile(photo.getFileId());
+            try {
+                // We execute the method using AbsSender::execute method.
+                File file = telegramClient.execute(getFileMethod);
+                // We now have the file_path
+                return file.getFilePath();
+            } catch (TelegramApiException e) {
+                LOGGER.error("error downloading photo", e);
+            }
+        }
+
+        return null; // Just in case
     }
 
     private void handleTextMessage(Message incomingMessage) {
@@ -184,6 +243,6 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
     @AfterBotRegistration
     public void afterRegistration(BotSession botSession) {
-        System.out.println("Registered bot running state is: " + botSession.isRunning());
+        LOGGER.info("Registered bot running state is: {}", botSession.isRunning());
     }
 }
