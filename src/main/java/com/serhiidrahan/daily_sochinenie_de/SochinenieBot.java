@@ -6,6 +6,7 @@ import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
 import com.serhiidrahan.daily_sochinenie_de.enums.Language;
 import com.serhiidrahan.daily_sochinenie_de.service.AssignmentService;
 import com.serhiidrahan.daily_sochinenie_de.service.ChatGPTService;
+import com.serhiidrahan.daily_sochinenie_de.service.LocalizedMessagesService;
 import com.serhiidrahan.daily_sochinenie_de.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,10 +32,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
@@ -44,13 +42,18 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     private final UserService userService;
     private final AssignmentService assignmentService;
     private final ChatGPTService chatGPTService;
+    private final LocalizedMessagesService localizedMessagesService;
     private final String botToken;
 
+    private static final int MIN_SUBMISSION_LENGTH = 10;
+    private static final int MAX_SUBMISSION_LENGTH = 4000;
+
     public SochinenieBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
-                         @Value("${telegrambot.token}") String botToken) {
+                         LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
         this.userService = userService;
         this.assignmentService = assignmentService;
         this.chatGPTService = chatGPTService;
+        this.localizedMessagesService = localizedMessagesService;
         this.botToken = botToken;
         this.telegramClient = new OkHttpTelegramClient(getBotToken());
     }
@@ -98,16 +101,13 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             // Retrieve user and current assignment
             Long telegramUserId = message.getFrom().getId();
             String telegramUsername = message.getFrom().getUserName();
-            String language = message.getFrom().getLanguageCode();
             User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
             Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
             String topic = currentAssignment.getTopic().getTopicDe();
 
-            // Validate the extracted text against the topic
-            boolean isRelated = chatGPTService.validateSubmission(extractedText, topic);
-            if (!isRelated) {
-                sendMessage(chatId, "Your submission doesn't seem to be related to the assignment topic: *"
-                        + topic + "*.\nPlease try again with an essay on this topic.");
+            String validationErrorMessage = validateSubmission(extractedText, user.getLanguage(), topic);
+            if (validationErrorMessage != null) {
+                sendMessage(chatId, validationErrorMessage);
                 return;
             }
 
@@ -118,6 +118,22 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             LOGGER.error("Error processing image", e);
             sendMessage(chatId, "Failed to process the image. Please try again.");
         }
+    }
+
+    private String validateSubmission(String submission, Language userLanguage, String topic) {
+        boolean isTooShort = submission.length() < MIN_SUBMISSION_LENGTH;
+        if (isTooShort) {
+            return localizedMessagesService.sumbissionTooShort(userLanguage);
+        }
+        boolean isTooLong = submission.length() > MAX_SUBMISSION_LENGTH;
+        if (isTooLong) {
+            return localizedMessagesService.sumbissionTooLong(userLanguage, MAX_SUBMISSION_LENGTH);
+        }
+        boolean isRelated = chatGPTService.validateSubmission(submission, topic);
+        if (!isRelated) {
+            return localizedMessagesService.submissionTopicIsWrong(userLanguage, topic);
+        }
+        return null;
     }
 
     public java.io.File downloadPhotoByFilePath(String filePath) {
@@ -170,11 +186,9 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
         String topic = currentAssignment.getTopic().getTopicDe();
 
-        // First, check if the submission is really related to the assignment topic.
-        boolean isRelated = chatGPTService.validateSubmission(incomingMessageText, topic);
-        if (!isRelated) {
-            sendMessage(chatId, "Your submission doesn't seem to be related to the assignment topic: *"
-                    + topic + "*.\nPlease try again with an essay on this topic.");
+        String validationErrorMessage = validateSubmission(incomingMessageText, user.getLanguage(), topic);
+        if (validationErrorMessage != null) {
+            sendMessage(chatId, validationErrorMessage);
             return;
         }
 
@@ -188,7 +202,6 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
     }
 
-
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
         String callbackData = callbackQuery.getData();
         long chatId = callbackQuery.getMessage().getChatId();
@@ -199,7 +212,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         // If the callback is for setting the language:
         if (callbackData.startsWith("set_language_")) {
             String langCode = callbackData.substring("set_language_".length());
-            Language selectedLanguage = Language.valueOf(langCode);  // Assumes enum values: EN, RU, DE.
+            Language selectedLanguage = Language.valueOf(langCode);
             // Update the user's language preference.
             User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
             user.setLanguage(selectedLanguage);
@@ -209,20 +222,12 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             removeInlineKeyboard(messageId, chatId);
 
             // Send a confirmation message in the chosen language.
-            String confirmation;
-            switch (selectedLanguage) {
-                case EN:
-                    confirmation = "Language set to English.";
-                    break;
-                case RU:
-                    confirmation = "Язык установлен на Русский.";
-                    break;
-                case DE:
-                    confirmation = "Sprache auf Deutsch eingestellt.";
-                    break;
-                default:
-                    confirmation = "Language updated.";
-            }
+            String confirmation = switch (selectedLanguage) {
+                case EN -> "Language set to English.";
+                case RU -> "Язык установлен на Русский.";
+                case DE -> "Sprache auf Deutsch eingestellt.";
+                default -> "Language updated.";
+            };
             sendMessage(chatId, confirmation);
 
             if (assignmentService.getCurrentActiveAssignment(user) == null) {

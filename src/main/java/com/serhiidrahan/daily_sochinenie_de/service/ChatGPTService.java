@@ -60,7 +60,7 @@ public class ChatGPTService {
             payload.put("model", "gpt-4o");
 
             ArrayNode messages = objectMapper.createArrayNode();
-            messages.add(createMessage("system", "You are an evaluator. Given a topic and an essay, determine if the essay is related to the topic. If it is, answer only with 'RELATED'. If it is not, answer only with 'NOT RELATED'. Do not include any additional text."));
+            messages.add(createMessage("system", "You are an evaluator. Given a topic and an essay, determine if the essay is related to the topic and if the language is German. If it is, answer only with 'RELATED'. If it is not, answer only with 'NOT RELATED'. Do not include any additional text."));
             messages.add(createMessage("user", "Topic: " + topic + "\nEssay: " + submissionText));
             payload.set("messages", messages);
 

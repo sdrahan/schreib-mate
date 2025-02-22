@@ -15,6 +15,7 @@
 	<description>Daily Sochinenie DE</description>
 
 	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.version>17</java.version>
 		<flyway.version>11.1.0</flyway.version>
 		<jackson-databind.version>2.18.2</jackson-databind.version>
