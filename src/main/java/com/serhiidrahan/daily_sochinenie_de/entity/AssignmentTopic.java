@@ -1,7 +1,9 @@
 package com.serhiidrahan.daily_sochinenie_de.entity;
 
 import com.serhiidrahan.daily_sochinenie_de.enums.Language;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "assignment_topic")

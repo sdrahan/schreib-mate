@@ -32,21 +32,22 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
-
+    private static final int MIN_SUBMISSION_LENGTH = 10;
+    private static final int MAX_SUBMISSION_LENGTH = 4000;
     private final TelegramClient telegramClient;
     private final UserService userService;
     private final AssignmentService assignmentService;
     private final ChatGPTService chatGPTService;
     private final LocalizedMessagesService localizedMessagesService;
     private final String botToken;
-
-    private static final int MIN_SUBMISSION_LENGTH = 10;
-    private static final int MAX_SUBMISSION_LENGTH = 4000;
 
     public SochinenieBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
                          LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
@@ -222,12 +223,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             removeInlineKeyboard(messageId, chatId);
 
             // Send a confirmation message in the chosen language.
-            String confirmation = switch (selectedLanguage) {
-                case EN -> "Language set to English.";
-                case RU -> "Язык установлен на Русский.";
-                case DE -> "Sprache auf Deutsch eingestellt.";
-                default -> "Language updated.";
-            };
+            String confirmation = localizedMessagesService.languageConfirmation(selectedLanguage);
             sendMessage(chatId, confirmation);
 
             if (assignmentService.getCurrentActiveAssignment(user) == null) {
@@ -286,7 +282,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void sendAssignment(Long chatId, Assignment assignment, Language language) {
-        String assignmentText = String.format("📌 *Your Assignment:*\n*%s*\n\n%s\n\n*Keywords:*\n%s",
+        String assignmentText = localizedMessagesService.assignmentText(language,
                 assignment.getTopic().getTopic(language),
                 assignment.getTopic().getDescription(language),
                 assignment.getTopic().getKeywords(language));

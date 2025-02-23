@@ -30,6 +30,16 @@ public class LocalizedMessagesService {
         return messageSource.getMessage("submission.too_long",new Object[]{maxChars}, locale);
     }
 
+    public String assignmentText(Language language, String topic, String description, String keywords) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("submission.new_topic",new Object[]{topic, description, keywords}, locale);
+    }
+
+    public String languageConfirmation(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("settings.language_confirmation", null, locale);
+    }
+
     private Locale getLocale(Language language) {
         return switch (language) {
             case RU -> new Locale("ru", "RU");

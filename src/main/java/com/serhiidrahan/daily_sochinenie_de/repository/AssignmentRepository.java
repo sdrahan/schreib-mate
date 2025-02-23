@@ -10,16 +10,10 @@ import java.util.List;
 
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
-    /**
-     * Finds the user's active assignment.
-     */
     @Query("SELECT a FROM Assignment a WHERE a.user.id = :userId AND a.state IN :states")
     List<Assignment> findAssignmentsByUserIdAndStates(@Param("userId") Long userId,
-                                                     @Param("states") List<AssignmentState> states);
+                                                      @Param("states") List<AssignmentState> states);
 
-    /**
-     * Finds topic IDs that have already been assigned to the user.
-     */
     @Query("SELECT a.topic.id FROM Assignment a WHERE a.user.id = :userId")
     List<Long> findAssignedTopicIdsByUserId(@Param("userId") Long userId);
 }
