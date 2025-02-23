@@ -52,4 +52,19 @@ public class LocalizedMessagesService {
             default -> Locale.ENGLISH;
         };
     }
+
+    public String errorProcessingImage(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("error.processing_image", null, locale);
+    }
+
+    public String errorGettingFeedback(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("error.getting_feedback", null, locale);
+    }
+
+    public String emptyImage(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("error.empty_image", null, locale);
+    }
 }

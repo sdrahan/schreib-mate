@@ -4,6 +4,8 @@ import com.serhiidrahan.daily_sochinenie_de.entity.Assignment;
 import com.serhiidrahan.daily_sochinenie_de.entity.User;
 import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
 import com.serhiidrahan.daily_sochinenie_de.enums.Language;
+import com.serhiidrahan.daily_sochinenie_de.enums.ValidationError;
+import com.serhiidrahan.daily_sochinenie_de.exception.ChatGPTException;
 import com.serhiidrahan.daily_sochinenie_de.service.AssignmentService;
 import com.serhiidrahan.daily_sochinenie_de.service.ChatGPTService;
 import com.serhiidrahan.daily_sochinenie_de.service.LocalizedMessagesService;
@@ -100,85 +102,28 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
     private void handlePhotoMessage(Message message) {
         long chatId = message.getChatId();
-        try {
-            // Get the largest resolution photo
-            List<PhotoSize> photos = message.getPhoto();
-            PhotoSize largestPhoto = photos.stream()
-                    .max(Comparator.comparing(PhotoSize::getFileSize)).orElse(null);
-            String filePath = getFilePath(largestPhoto);
-            java.io.File imageFile = downloadPhotoByFilePath(filePath);
+        Long telegramUserId = message.getFrom().getId();
+        String telegramUsername = message.getFrom().getUserName();
+        User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
 
-            // Extract text from the image
+        try {
+            // Extract text from image
+            java.io.File imageFile = downloadUserImage(message);
             String extractedText = chatGPTService.extractTextFromImage(imageFile);
+
             if (extractedText.isEmpty()) {
-                sendMessage(chatId, "Couldn't extract text from the image. Please try again.");
+                LOGGER.warn("Tried extracting text from photo of user {}, but it's empty", telegramUserId);
+                sendMessage(chatId, localizedMessagesService.emptyImage(user.getLanguage()));
                 return;
             }
 
-            // Retrieve user and current assignment
-            Long telegramUserId = message.getFrom().getId();
-            String telegramUsername = message.getFrom().getUserName();
-            User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
-            Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
-            String topic = currentAssignment.getTopic().getTopicDe();
+            // Process submission as image
+            processSubmission(extractedText, user, chatId, true);
 
-            String validationErrorMessage = validateSubmission(extractedText, user.getLanguage(), topic);
-            if (validationErrorMessage != null) {
-                sendMessage(chatId, validationErrorMessage);
-                return;
-            }
-
-            // If validation passes, generate detailed grammatical feedback
-            String feedback = chatGPTService.getFeedback(extractedText);
-            sendMessage(chatId, "Here's the extracted text and feedback:\n" + feedback);
         } catch (Exception e) {
-            LOGGER.error("Error processing image", e);
-            sendMessage(chatId, "Failed to process the image. Please try again.");
+            LOGGER.error("Error processing image submission for user {}", telegramUserId, e);
+            sendMessage(chatId, localizedMessagesService.errorProcessingImage(user.getLanguage()));
         }
-    }
-
-    private String validateSubmission(String submission, Language userLanguage, String topic) {
-        boolean isTooShort = submission.length() < MIN_SUBMISSION_LENGTH;
-        if (isTooShort) {
-            return localizedMessagesService.sumbissionTooShort(userLanguage);
-        }
-        boolean isTooLong = submission.length() > MAX_SUBMISSION_LENGTH;
-        if (isTooLong) {
-            return localizedMessagesService.sumbissionTooLong(userLanguage, MAX_SUBMISSION_LENGTH);
-        }
-        boolean isRelated = chatGPTService.validateSubmission(submission, topic);
-        if (!isRelated) {
-            return localizedMessagesService.submissionTopicIsWrong(userLanguage, topic);
-        }
-        return null;
-    }
-
-    public java.io.File downloadPhotoByFilePath(String filePath) {
-        try {
-            return telegramClient.downloadFile(filePath);
-        } catch (TelegramApiException e) {
-            LOGGER.error("Error downloading the file from telegram", e);
-        }
-
-        return null;
-    }
-
-    public String getFilePath(PhotoSize photo) {
-        Objects.requireNonNull(photo);
-
-        if (photo.getFilePath() != null) {
-            return photo.getFilePath();
-        } else {
-            GetFile getFileMethod = new GetFile(photo.getFileId());
-            try {
-                File file = telegramClient.execute(getFileMethod);
-                return file.getFilePath();
-            } catch (TelegramApiException e) {
-                LOGGER.error("Error getting photo's file path", e);
-            }
-        }
-
-        return null;
     }
 
     private void handleTextMessage(Message incomingMessage) {
@@ -200,23 +145,58 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
 
+        // Process text-based submission
+        processSubmission(incomingMessageText, user, chatId, false);
+    }
+
+
+    private void processSubmission(String submission, User user, long chatId, boolean isImageSubmission) {
+        Long telegramUserId = user.getTelegramId();
+        Language language = user.getLanguage();
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
         String topic = currentAssignment.getTopic().getTopicDe();
 
-        String validationErrorMessage = validateSubmission(incomingMessageText, user.getLanguage(), topic);
-        if (validationErrorMessage != null) {
-            sendMessage(chatId, validationErrorMessage);
-            return;
+        try {
+            // Validate submission
+            ValidationError validationError = validateSubmission(submission, topic);
+            if (validationError != null) {
+                logValidationError(telegramUserId, user, chatId, topic, submission, validationError);
+                sendMessage(chatId, getValidationErrorMessage(validationError, language, topic));
+                return;
+            }
+
+            // If valid, mark as submitted and remove keyboard
+            assignmentService.changeAssignmentState(currentAssignment, AssignmentState.SUBMITTED);
+            removeInlineKeyboard(currentAssignment.getTelegramMessageId(), chatId);
+
+            // Get feedback from OpenAI
+            String feedback = chatGPTService.getFeedback(submission, language);
+            String responseMessage = (isImageSubmission ? "Here's the extracted text and feedback:\n" : "") + feedback;
+
+            // Send message with "New Assignment" button
+            Message sentMessage = sendMessageWithButton(chatId, responseMessage, "I'm done, give me another", "new_assignment");
+            assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
+
+        } catch (ChatGPTException e) {
+            LOGGER.error("Error processing submission for user {}", telegramUserId, e);
+            sendMessage(chatId, localizedMessagesService.errorProcessingImage(language));
         }
+    }
 
-        // If valid, mark as submitted and proceed.
-        assignmentService.changeAssignmentState(currentAssignment, AssignmentState.SUBMITTED);
-        removeInlineKeyboard(currentAssignment.getTelegramMessageId(), chatId);
-
-        String feedback = chatGPTService.getFeedback(incomingMessageText);
-        Message sentMessage = sendMessageWithButton(chatId, feedback + "\n\nWould you like a new assignment?",
-                "I'm done, give me another", "new_assignment");
-        assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
+    private ValidationError validateSubmission(String submission, String topic) throws ChatGPTException {
+        boolean isTooShort = submission.length() < MIN_SUBMISSION_LENGTH;
+        if (isTooShort) {
+            return ValidationError.TOO_SHORT;
+        }
+        boolean isTooLong = submission.length() > MAX_SUBMISSION_LENGTH;
+        if (isTooLong) {
+            return ValidationError.TOO_LONG;
+        }
+        boolean isRelated = chatGPTService.validateSubmission(submission, topic);
+        if (!isRelated) {
+            return ValidationError.UNRELATED;
+        }
+        return null;
     }
 
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
@@ -354,6 +334,60 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         } catch (TelegramApiException e) {
             LOGGER.error("Error removing inline keyboard: {}", e.getMessage(), e);
         }
+    }
+
+    private void logValidationError(Long userId, User user, long chatId, String topic, String submission, ValidationError error) {
+        String userInfo = String.format("UserID: %d, Username: %s, ChatID: %d, Language: %s",
+                userId, user.getTelegramUsername(), chatId, user.getLanguage());
+
+        LOGGER.info("Submission validation failed [{}]: User details: {} | Topic: '{}' | Submission: '{}'",
+                error, userInfo, topic, submission.length() > 50 ? submission.substring(0, 50) + "..." : submission);
+    }
+
+    private String getValidationErrorMessage(ValidationError validationError, Language language, String topic) {
+        return switch (validationError) {
+            case TOO_SHORT -> localizedMessagesService.sumbissionTooShort(language);
+            case TOO_LONG -> localizedMessagesService.sumbissionTooLong(language, MAX_SUBMISSION_LENGTH);
+            case UNRELATED -> localizedMessagesService.submissionTopicIsWrong(language, topic);
+        };
+    }
+
+    private java.io.File downloadUserImage(Message message) throws Exception {
+        List<PhotoSize> photos = message.getPhoto();
+        PhotoSize largestPhoto = photos.stream()
+                .max(Comparator.comparing(PhotoSize::getFileSize))
+                .orElseThrow(() -> new Exception("No photo found in message"));
+
+        String filePath = getFilePath(largestPhoto);
+        return downloadPhotoByFilePath(filePath);
+    }
+
+    public java.io.File downloadPhotoByFilePath(String filePath) {
+        try {
+            return telegramClient.downloadFile(filePath);
+        } catch (TelegramApiException e) {
+            LOGGER.error("Error downloading the file from telegram", e);
+        }
+
+        return null;
+    }
+
+    public String getFilePath(PhotoSize photo) {
+        Objects.requireNonNull(photo);
+
+        if (photo.getFilePath() != null) {
+            return photo.getFilePath();
+        } else {
+            GetFile getFileMethod = new GetFile(photo.getFileId());
+            try {
+                File file = telegramClient.execute(getFileMethod);
+                return file.getFilePath();
+            } catch (TelegramApiException e) {
+                LOGGER.error("Error getting photo's file path", e);
+            }
+        }
+
+        return null;
     }
 
     private boolean isUserRequestProcessing(Long userId) {
