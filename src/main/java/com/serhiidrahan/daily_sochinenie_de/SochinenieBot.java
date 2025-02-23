@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
@@ -48,6 +49,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     private final ChatGPTService chatGPTService;
     private final LocalizedMessagesService localizedMessagesService;
     private final String botToken;
+
+    private final ConcurrentHashMap<Long, Boolean> usersExpectingResponse = new ConcurrentHashMap<>();
 
     public SochinenieBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
                          LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
@@ -72,10 +75,23 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     @Override
     public void consume(Update update) {
         if (update.hasMessage()) {
-            if (update.getMessage().hasPhoto()) {
-                handlePhotoMessage(update.getMessage());
-            } else if (update.getMessage().hasText()) {
-                handleTextMessage(update.getMessage());
+            long userId = update.getMessage().getFrom().getId();
+
+            // Prevent multiple simultaneous requests from the same user
+            if (isUserRequestProcessing(userId)) {
+                LOGGER.warn("Received message from user {} before the previous one got processed", userId);
+                return;
+            }
+            markUserAsProcessing(userId);
+
+            try {
+                if (update.getMessage().hasPhoto()) {
+                    handlePhotoMessage(update.getMessage());
+                } else if (update.getMessage().hasText()) {
+                    handleTextMessage(update.getMessage());
+                }
+            } finally {
+                clearUserProcessingStatus(userId);
             }
         } else if (update.hasCallbackQuery()) {
             handleCallbackQuery(update.getCallbackQuery());
@@ -210,6 +226,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         Long telegramUserId = callbackQuery.getFrom().getId();
         String telegramUsername = callbackQuery.getFrom().getUserName();
 
+        clearUserProcessingStatus(telegramUserId);
+
         // If the callback is for setting the language:
         if (callbackData.startsWith("set_language_")) {
             String langCode = callbackData.substring("set_language_".length());
@@ -258,9 +276,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void showLanguageSelection(long chatId) {
-        String messageText = "Welcome! Please choose your preferred language:\n" +
-                "Добро пожаловать! Пожалуйста, выберите язык:\n" +
-                "Willkommen! Bitte wählen Sie Ihre Sprache:";
+        String messageText = localizedMessagesService.languageSelect();
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
                 .keyboardRow(new InlineKeyboardRow(List.of(
                         InlineKeyboardButton.builder().text("🇬🇧 English").callbackData("set_language_EN").build(),
@@ -338,6 +354,18 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         } catch (TelegramApiException e) {
             LOGGER.error("Error removing inline keyboard: {}", e.getMessage(), e);
         }
+    }
+
+    private boolean isUserRequestProcessing(Long userId) {
+        return usersExpectingResponse.containsKey(userId);
+    }
+
+    private void markUserAsProcessing(Long userId) {
+        usersExpectingResponse.put(userId, true);
+    }
+
+    private void clearUserProcessingStatus(Long userId) {
+        usersExpectingResponse.remove(userId);
     }
 
     @AfterBotRegistration

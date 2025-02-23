@@ -40,6 +40,11 @@ public class LocalizedMessagesService {
         return messageSource.getMessage("settings.language_confirmation", null, locale);
     }
 
+    public String languageSelect() {
+        Locale locale = getLocale(Language.EN);
+        return messageSource.getMessage("settings.language_select", null, locale);
+    }
+
     private Locale getLocale(Language language) {
         return switch (language) {
             case RU -> new Locale("ru", "RU");
