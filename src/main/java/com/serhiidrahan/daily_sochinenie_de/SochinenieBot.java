@@ -20,7 +20,9 @@ import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsume
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -34,17 +36,17 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
     private static final int MIN_SUBMISSION_LENGTH = 10;
     private static final int MAX_SUBMISSION_LENGTH = 4000;
+    private static final int TELEGRAM_MESSAGE_LIMIT = 4000;
     private final TelegramClient telegramClient;
     private final UserService userService;
     private final AssignmentService assignmentService;
@@ -53,6 +55,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     private final String botToken;
 
     private final ConcurrentHashMap<Long, Boolean> usersExpectingResponse = new ConcurrentHashMap<>();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+
 
     public SochinenieBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
                          LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
@@ -79,26 +83,30 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         if (update.hasMessage()) {
             long userId = update.getMessage().getFrom().getId();
 
-            // Prevent multiple simultaneous requests from the same user
+            // Prevent multiple requests from the same user
             if (isUserRequestProcessing(userId)) {
                 LOGGER.warn("Received message from user {} before the previous one got processed", userId);
                 return;
             }
             markUserAsProcessing(userId);
 
-            try {
-                if (update.getMessage().hasPhoto()) {
-                    handlePhotoMessage(update.getMessage());
-                } else if (update.getMessage().hasText()) {
-                    handleTextMessage(update.getMessage());
+            // Process asynchronously
+            executorService.submit(() -> {
+                try {
+                    if (update.getMessage().hasPhoto()) {
+                        handlePhotoMessage(update.getMessage());
+                    } else if (update.getMessage().hasText()) {
+                        handleTextMessage(update.getMessage());
+                    }
+                } finally {
+                    clearUserProcessingStatus(userId);
                 }
-            } finally {
-                clearUserProcessingStatus(userId);
-            }
+            });
         } else if (update.hasCallbackQuery()) {
             handleCallbackQuery(update.getCallbackQuery());
         }
     }
+
 
     private void handlePhotoMessage(Message message) {
         long chatId = message.getChatId();
@@ -106,25 +114,28 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         String telegramUsername = message.getFrom().getUserName();
         User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
 
-        try {
-            // Extract text from image
-            java.io.File imageFile = downloadUserImage(message);
-            String extractedText = chatGPTService.extractTextFromImage(imageFile);
+        executorService.submit(() -> {
+            try {
+                showTyping(chatId);
 
-            if (extractedText.isEmpty()) {
-                LOGGER.warn("Tried extracting text from photo of user {}, but it's empty", telegramUserId);
-                sendMessage(chatId, localizedMessagesService.emptyImage(user.getLanguage()));
-                return;
+                // Extract text from image
+                java.io.File imageFile = downloadUserImage(message);
+                String extractedText = chatGPTService.extractTextFromImage(imageFile);
+
+                if (extractedText.isEmpty()) {
+                    LOGGER.warn("Tried extracting text from photo of user {}, but it's empty", telegramUserId);
+                    sendMessage(chatId, localizedMessagesService.emptyImage(user.getLanguage()));
+                    return;
+                }
+
+                processSubmission(extractedText, user, chatId, true);
+            } catch (Exception e) {
+                LOGGER.error("Error processing image submission for user {}", telegramUserId, e);
+                sendMessage(chatId, localizedMessagesService.errorProcessingImage(user.getLanguage()));
             }
-
-            // Process submission as image
-            processSubmission(extractedText, user, chatId, true);
-
-        } catch (Exception e) {
-            LOGGER.error("Error processing image submission for user {}", telegramUserId, e);
-            sendMessage(chatId, localizedMessagesService.errorProcessingImage(user.getLanguage()));
-        }
+        });
     }
+
 
     private void handleTextMessage(Message incomingMessage) {
         long chatId = incomingMessage.getChatId();
@@ -145,6 +156,11 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
 
+        if (assignmentService.getCurrentActiveAssignment(user) == null) {
+            assignFirstAssignment(chatId, user);
+            return;
+        }
+
         // Process text-based submission
         processSubmission(incomingMessageText, user, chatId, false);
     }
@@ -154,9 +170,14 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         Long telegramUserId = user.getTelegramId();
         Language language = user.getLanguage();
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
+        if (currentAssignment == null) {
+            return;
+        }
         String topic = currentAssignment.getTopic().getTopicDe();
 
         try {
+            showTyping(chatId);
+
             // Validate submission
             ValidationError validationError = validateSubmission(submission, topic);
             if (validationError != null) {
@@ -165,20 +186,25 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                 return;
             }
 
-            // If valid, mark as submitted and remove keyboard
+            // Mark as submitted and remove inline keyboard
             assignmentService.changeAssignmentState(currentAssignment, AssignmentState.SUBMITTED);
             removeInlineKeyboard(currentAssignment.getTelegramMessageId(), chatId);
 
-            // Get feedback from OpenAI
-            String feedback = chatGPTService.getFeedback(submission, language);
-            String responseMessage = (isImageSubmission ? "Here's the extracted text and feedback:\n" : "") + feedback;
+            // Fetch feedback asynchronously
+            executorService.submit(() -> {
+                try {
+                    String feedback = chatGPTService.getFeedback(submission, language);
+                    String responseMessage = (isImageSubmission ? "Here's the extracted text and feedback:\n" : "") + feedback;
+                    Message sentMessage = sendMessageWithButton(chatId, responseMessage, "I'm done, give me another", "new_assignment");
+                    assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
+                } catch (ChatGPTException e) {
+                    LOGGER.error("Error processing submission for user {}", telegramUserId, e);
+                    sendMessage(chatId, localizedMessagesService.errorProcessingImage(language));
+                }
+            });
 
-            // Send message with "New Assignment" button
-            Message sentMessage = sendMessageWithButton(chatId, responseMessage, "I'm done, give me another", "new_assignment");
-            assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
-
-        } catch (ChatGPTException e) {
-            LOGGER.error("Error processing submission for user {}", telegramUserId, e);
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error during submission processing for user {}", telegramUserId, e);
             sendMessage(chatId, localizedMessagesService.errorProcessingImage(language));
         }
     }
@@ -225,10 +251,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             sendMessage(chatId, confirmation);
 
             if (assignmentService.getCurrentActiveAssignment(user) == null) {
-                // seems like it was the first-time setup
-                sendMessage(chatId, "Now I'm now going to give you your first assignment!");
-                Assignment firstAssignment = assignmentService.assignNewTopic(user);
-                sendAssignment(chatId, firstAssignment, user.getLanguage());
+                assignFirstAssignment(chatId, user);
             }
 
             return;
@@ -238,6 +261,12 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             removeInlineKeyboard(messageId, chatId);
             assignNewAssignment(chatId, userService.getOrCreateUser(telegramUserId, telegramUsername, chatId));
         }
+    }
+
+    private void assignFirstAssignment(Long chatId, User user) {
+        sendMessage(chatId, "Now I'm now going to give you your first assignment!");
+        Assignment firstAssignment = assignmentService.assignNewTopic(user);
+        sendAssignment(chatId, firstAssignment, user.getLanguage());
     }
 
     private void assignNewAssignment(Long chatId, User user) {
@@ -288,19 +317,26 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void sendMessage(Long chatId, String text) {
-        SendMessage message = SendMessage.builder()
-                .chatId(chatId)
-                .text(text)
-                .parseMode("Markdown")
-                .build();
-        try {
-            telegramClient.execute(message);
-        } catch (TelegramApiException e) {
-            LOGGER.error("Error sending message: {}", e.getMessage(), e);
+        List<String> messageChunks = splitMessage(text, TELEGRAM_MESSAGE_LIMIT);
+
+        for (String chunk : messageChunks) {
+            SendMessage message = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(chunk)
+                    .parseMode("Markdown")
+                    .build();
+            try {
+                telegramClient.execute(message);
+            } catch (TelegramApiException e) {
+                LOGGER.error("Error sending message chunk: {}", e.getMessage(), e);
+            }
         }
     }
 
     private Message sendMessageWithButton(Long chatId, String text, String buttonText, String callbackData) {
+        List<String> messageChunks = splitMessage(text, TELEGRAM_MESSAGE_LIMIT);
+        Message lastSentMessage = null;
+
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
                 .keyboardRow(new InlineKeyboardRow(List.of(InlineKeyboardButton.builder()
                         .text(buttonText)
@@ -308,19 +344,49 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                         .build())))
                 .build();
 
-        SendMessage message = SendMessage.builder()
-                .chatId(chatId)
-                .text(text)
-                .parseMode("Markdown")
-                .replyMarkup(keyboard)
-                .build();
+        for (int i = 0; i < messageChunks.size(); i++) {
+            boolean isLastChunk = (i == messageChunks.size() - 1);
 
-        try {
-            return telegramClient.execute(message);
-        } catch (TelegramApiException e) {
-            LOGGER.error("Error sending message: {}", e.getMessage(), e);
+            SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(messageChunks.get(i))
+                    .parseMode("Markdown");
+
+            if (isLastChunk) {
+                messageBuilder.replyMarkup(keyboard);
+            }
+
+            try {
+                lastSentMessage = telegramClient.execute(messageBuilder.build());
+            } catch (TelegramApiException e) {
+                LOGGER.error("Error sending message chunk with button: {}", e.getMessage(), e);
+            }
         }
-        return null;
+
+        return lastSentMessage;
+    }
+
+    private List<String> splitMessage(String text, int limit) {
+        List<String> chunks = new ArrayList<>();
+
+        while (text.length() > limit) {
+            int splitIndex = text.lastIndexOf("\n", limit); // Try to split at newline
+            if (splitIndex == -1) {
+                splitIndex = text.lastIndexOf(" ", limit); // Otherwise split at the last space
+            }
+            if (splitIndex == -1) {
+                splitIndex = limit; // If no space, force split at limit
+            }
+
+            chunks.add(text.substring(0, splitIndex).trim());
+            text = text.substring(splitIndex).trim();
+        }
+
+        if (!text.isEmpty()) {
+            chunks.add(text);
+        }
+
+        return chunks;
     }
 
     private void removeInlineKeyboard(int messageId, long chatId) {
@@ -333,6 +399,19 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             telegramClient.execute(editMarkup);
         } catch (TelegramApiException e) {
             LOGGER.error("Error removing inline keyboard: {}", e.getMessage(), e);
+        }
+    }
+
+    private void showTyping(Long chatId) {
+        SendChatAction sendChatAction = SendChatAction.builder()
+                .action(ActionType.TYPING.toString())
+                .chatId(chatId)
+                .build();
+        try {
+            telegramClient.execute(sendChatAction);
+            // LOGGER.info("Sending 'typing' action to chat {}", chatId);
+        } catch (TelegramApiException e) {
+            LOGGER.error("Error sending 'typing' action");
         }
     }
 
