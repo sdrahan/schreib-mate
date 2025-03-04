@@ -84,4 +84,11 @@ public class AssignmentService {
         assignment.setTelegramMessageId(telegramMessageId);
         assignmentRepository.save(assignment);
     }
+
+    @Transactional(readOnly = true)
+    public boolean hasAvailableTopics(User user) {
+        List<Long> assignedTopicIds = assignmentRepository.findAssignedTopicIdsByUserId(user.getId());
+        List<AssignmentTopic> availableTopics = assignmentTopicService.getUnassignedActiveTopics(assignedTopicIds);
+        return !availableTopics.isEmpty();
+    }
 }

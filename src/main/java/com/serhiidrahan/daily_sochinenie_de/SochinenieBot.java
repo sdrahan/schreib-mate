@@ -155,6 +155,11 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         }
 
         if (assignmentService.getCurrentActiveAssignment(user) == null) {
+            if (!assignmentService.hasAvailableTopics(user)) {
+                sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(user.getLanguage()));
+                return;
+            }
+
             assignFirstAssignment(chatId, user);
             return;
         }
@@ -168,14 +173,20 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         Long telegramUserId = user.getTelegramId();
         Language language = user.getLanguage();
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
+
+        // If the user has no active assignments, check if we can assign a new one
         if (currentAssignment == null) {
+            if (!assignmentService.hasAvailableTopics(user)) {
+                sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(language));
+                return;
+            }
+
+            assignNewAssignment(chatId, user);
             return;
         }
         String topic = currentAssignment.getTopic().getTopicDe();
 
         try {
-            // showTyping(chatId);
-
             // Validate submission
             ValidationError validationError = validateSubmission(submission, topic);
             if (validationError != null) {
@@ -196,7 +207,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                     assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
                 } catch (ChatGPTException e) {
                     LOGGER.error("Error processing submission for user {}", telegramUserId, e);
-                    sendMessage(chatId, localizedMessagesService.errorProcessingImage(language));
+                    sendMessage(chatId, localizedMessagesService.errorGettingFeedback(language));
                 }
             });
 
