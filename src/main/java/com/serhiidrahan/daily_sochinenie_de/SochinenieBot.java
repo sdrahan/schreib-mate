@@ -176,6 +176,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
         // If the user has no active assignments, check if we can assign a new one
         if (currentAssignment == null) {
+            LOGGER.warn("User {} has no active assignment, but sent a submission.", telegramUserId);
             if (!assignmentService.hasAvailableTopics(user)) {
                 sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(language));
                 return;
@@ -185,6 +186,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
         String topic = currentAssignment.getTopic().getTopicDe();
+        LOGGER.info("User {} submitting text for topic: {}", telegramUserId, topic);
 
         try {
             // Validate submission
@@ -206,13 +208,13 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
                     Message sentMessage = sendMessageWithButton(chatId, feedback, localizedMessagesService.buttonIAmDone(language), "new_assignment");
                     assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
                 } catch (ChatGPTException e) {
-                    LOGGER.error("Error processing submission for user {}", telegramUserId, e);
+                    LOGGER.error("Error fetching feedback for user {}", telegramUserId, e);
                     sendMessage(chatId, localizedMessagesService.errorGettingFeedback(language));
                 }
             });
 
         } catch (Exception e) {
-            LOGGER.error("Unexpected error during submission processing for user {}", telegramUserId, e);
+            LOGGER.error("Unexpected error during submission processing for user {}: {}", telegramUserId, e.getMessage(), e);
             sendMessage(chatId, localizedMessagesService.errorGettingFeedback(language));
         }
     }
@@ -241,6 +243,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         String telegramUsername = callbackQuery.getFrom().getUserName();
 
         clearUserProcessingStatus(telegramUserId);
+        LOGGER.info("Received callback '{}' from user {}", callbackData, telegramUserId);
 
         // If the callback is for setting the language:
         if (callbackData.startsWith("set_language_")) {
@@ -250,6 +253,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             User user = userService.getOrCreateUser(telegramUserId, telegramUsername, chatId);
             user.setLanguage(selectedLanguage);
             userService.save(user);
+            LOGGER.info("User {} changed language to {}", telegramUserId, selectedLanguage);
 
             // Remove the language selection keyboard.
             removeInlineKeyboard(messageId, chatId);
@@ -266,6 +270,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         }
 
         if (callbackData.equals("new_assignment")) {
+            LOGGER.info("User {} asked for new assignment", telegramUserId);
             removeInlineKeyboard(messageId, chatId);
             assignNewAssignment(chatId, userService.getOrCreateUser(telegramUserId, telegramUsername, chatId));
         }
