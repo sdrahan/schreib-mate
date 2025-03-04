@@ -37,3 +37,4 @@ build/
 
 ### Local Docker Directory ###
 .docker/
+.env
