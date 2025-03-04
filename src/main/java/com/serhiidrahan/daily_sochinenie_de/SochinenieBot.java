@@ -44,7 +44,7 @@ import java.util.concurrent.Executors;
 @Component
 public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
-    private static final int MIN_SUBMISSION_LENGTH = 10;
+    private static final int MIN_SUBMISSION_LENGTH = 30;
     private static final int MAX_SUBMISSION_LENGTH = 4000;
     private static final int TELEGRAM_MESSAGE_LIMIT = 4000;
     private final TelegramClient telegramClient;
@@ -116,8 +116,6 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
         executorService.submit(() -> {
             try {
-                showTyping(chatId);
-
                 // Extract text from image
                 java.io.File imageFile = downloadUserImage(message);
                 String extractedText = chatGPTService.extractTextFromImage(imageFile);
@@ -176,7 +174,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         String topic = currentAssignment.getTopic().getTopicDe();
 
         try {
-            showTyping(chatId);
+            // showTyping(chatId);
 
             // Validate submission
             ValidationError validationError = validateSubmission(submission, topic);
@@ -194,8 +192,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             executorService.submit(() -> {
                 try {
                     String feedback = chatGPTService.getFeedback(submission, language);
-                    String responseMessage = (isImageSubmission ? "Here's the extracted text and feedback:\n" : "") + feedback;
-                    Message sentMessage = sendMessageWithButton(chatId, responseMessage, "I'm done, give me another", "new_assignment");
+                    Message sentMessage = sendMessageWithButton(chatId, feedback, localizedMessagesService.buttonIAmDone(language), "new_assignment");
                     assignmentService.setTelegramMessageId(currentAssignment, sentMessage.getMessageId());
                 } catch (ChatGPTException e) {
                     LOGGER.error("Error processing submission for user {}", telegramUserId, e);
@@ -205,7 +202,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
         } catch (Exception e) {
             LOGGER.error("Unexpected error during submission processing for user {}", telegramUserId, e);
-            sendMessage(chatId, localizedMessagesService.errorProcessingImage(language));
+            sendMessage(chatId, localizedMessagesService.errorGettingFeedback(language));
         }
     }
 
@@ -264,7 +261,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void assignFirstAssignment(Long chatId, User user) {
-        sendMessage(chatId, "Now I'm now going to give you your first assignment!");
+        sendMessage(chatId, localizedMessagesService.firstAssignment(user.getLanguage()));
         Assignment firstAssignment = assignmentService.assignNewTopic(user);
         sendAssignment(chatId, firstAssignment, user.getLanguage());
     }
@@ -273,14 +270,20 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
         Assignment currentAssignment = assignmentService.getCurrentActiveAssignment(user);
 
         if (currentAssignment.getState() == AssignmentState.SUBMITTED) {
-            sendMessage(chatId, "Ok, here's your new assignment.");
+            sendMessage(chatId, localizedMessagesService.doneWithTopic(user.getLanguage()));
             assignmentService.changeAssignmentState(currentAssignment, AssignmentState.DONE);
         } else {
-            sendMessage(chatId, "I understand you don't want this one. Let's assign you another.");
+            sendMessage(chatId, localizedMessagesService.wantAnotherTopic(user.getLanguage()));
             assignmentService.changeAssignmentState(currentAssignment, AssignmentState.CANCELLED);
         }
 
-        Assignment newAssignment = assignmentService.assignNewTopic(user);
+        Assignment newAssignment;
+        try {
+            newAssignment = assignmentService.assignNewTopic(user);
+        } catch (IllegalStateException e) {
+            sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(user.getLanguage()));
+            return;
+        }
         sendAssignment(chatId, newAssignment, user.getLanguage());
     }
 
@@ -307,12 +310,18 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void sendAssignment(Long chatId, Assignment assignment, Language language) {
+        String topicText;
+        if (language.equals(Language.DE)) {
+            topicText = assignment.getTopic().getTopic(language);
+        } else {
+            topicText = assignment.getTopic().getTopic(language) + " (" + assignment.getTopic().getTopic(Language.DE) + ")";
+        }
         String assignmentText = localizedMessagesService.assignmentText(language,
-                assignment.getTopic().getTopic(language),
+                topicText,
                 assignment.getTopic().getDescription(language),
                 assignment.getTopic().getKeywords(language));
 
-        Message message = sendMessageWithButton(chatId, assignmentText, "I want another one", "new_assignment");
+        Message message = sendMessageWithButton(chatId, assignmentText, localizedMessagesService.buttonIWantAnother(language), "new_assignment");
         assignmentService.setTelegramMessageId(assignment, message.getMessageId());
     }
 

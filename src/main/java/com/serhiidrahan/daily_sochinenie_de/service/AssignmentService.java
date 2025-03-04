@@ -64,7 +64,7 @@ public class AssignmentService {
 
         List<AssignmentTopic> availableTopics = assignmentTopicService.getUnassignedActiveTopics(assignedTopicIds);
         if (availableTopics.isEmpty()) {
-            throw new IllegalStateException("No available new topics for the user.");
+            throw new IllegalStateException("No available new topics for the user " + user.getTelegramId());
         }
 
         // Pick a random topic
@@ -83,20 +83,5 @@ public class AssignmentService {
     public void setTelegramMessageId(Assignment assignment, Integer telegramMessageId) {
         assignment.setTelegramMessageId(telegramMessageId);
         assignmentRepository.save(assignment);
-    }
-
-    /**
-     * Cancels the current active assignment and assigns a new one.
-     */
-    @Transactional
-    public Assignment cancelAndReassign(User user) {
-        Assignment activeAssignment = getCurrentActiveAssignment(user);
-
-        // Mark the current assignment as CANCELLED
-        activeAssignment.setState(AssignmentState.CANCELLED);
-        assignmentRepository.save(activeAssignment);
-
-        // Assign a new topic
-        return assignNewTopic(user);
     }
 }

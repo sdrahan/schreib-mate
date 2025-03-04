@@ -24,7 +24,7 @@ CREATE TABLE user
     telegram_id        BIGINT,
     telegram_username  VARCHAR(255) NULL,
     chat_id            BIGINT,
-    language           VARCHAR(3) NOT NULL DEFAULT 'DE',
+    language           VARCHAR(3) NOT NULL,
     CONSTRAINT pk_user_id PRIMARY KEY (id),
     CONSTRAINT uq_user_telegram_id UNIQUE (telegram_id)
 );

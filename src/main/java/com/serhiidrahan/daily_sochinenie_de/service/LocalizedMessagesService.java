@@ -1,6 +1,7 @@
 package com.serhiidrahan.daily_sochinenie_de.service;
 
 import com.serhiidrahan.daily_sochinenie_de.enums.Language;
+import org.springframework.cglib.core.Local;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 
@@ -66,5 +67,35 @@ public class LocalizedMessagesService {
     public String emptyImage(Language language) {
         Locale locale = getLocale(language);
         return messageSource.getMessage("error.empty_image", null, locale);
+    }
+
+    public String errorNoTopicsLeft(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("error.no_topics_left", null, locale);
+    }
+
+    public String buttonIWantAnother(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("button.i_want_another", null, locale);
+    }
+
+    public String buttonIAmDone(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("button.i_am_done", null, locale);
+    }
+
+    public String firstAssignment(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("topic.first", null, locale);
+    }
+
+    public String wantAnotherTopic(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("topic.skipped", null, locale);
+    }
+
+    public String doneWithTopic(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("topic.done", null, locale);
     }
 }
