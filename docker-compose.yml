@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql-db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - backend
+    ports:
+      - "${MYSQL_EXTERNAL_PORT}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  dailysochineniede:
+    build: .
+    container_name: daily-sochinenie-de
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+
+networks:
+  backend:
+    driver: bridge
