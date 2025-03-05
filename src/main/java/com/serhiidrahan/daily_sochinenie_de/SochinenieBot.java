@@ -155,6 +155,11 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
 
+        if (incomingMessageText.equalsIgnoreCase("/privacy_policy")) {
+            sendMessage(chatId, localizedMessagesService.privacyPolicy(user.getLanguage()));
+            return;
+        }
+
         if (assignmentService.getCurrentActiveAssignment(user) == null) {
             if (!assignmentService.hasAvailableTopics(user)) {
                 sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(user.getLanguage()));
@@ -286,6 +291,7 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void assignFirstAssignment(Long chatId, User user) {
+        sendMessage(chatId, localizedMessagesService.privacyPolicy(user.getLanguage()));
         sendMessage(chatId, localizedMessagesService.firstAssignment(user.getLanguage()));
         Assignment firstAssignment = assignmentService.assignNewTopic(user);
         sendAssignment(chatId, firstAssignment, user.getLanguage());

@@ -98,4 +98,9 @@ public class LocalizedMessagesService {
         Locale locale = getLocale(language);
         return messageSource.getMessage("topic.done", null, locale);
     }
+
+    public String privacyPolicy(Language language) {
+        Locale locale = getLocale(language);
+        return messageSource.getMessage("info.privacy_policy", null, locale);
+    }
 }
