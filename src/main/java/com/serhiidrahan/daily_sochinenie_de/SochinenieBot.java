@@ -164,6 +164,14 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
             return;
         }
 
+        if (incomingMessageText.equalsIgnoreCase("/new_assignment")) {
+            LOGGER.info("User {} asked for new assignment", telegramUserId);
+
+            removeInlineKeyboard(assignmentService.getCurrentActiveAssignment(user).getTelegramMessageId(), chatId);
+            assignNewAssignment(chatId, userService.getOrCreateUser(telegramUserId, telegramUsername, chatId));
+            return;
+        }
+
         // Process text-based submission
         processSubmission(incomingMessageText, user, chatId, false);
     }
