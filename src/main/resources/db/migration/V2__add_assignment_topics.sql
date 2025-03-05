@@ -240,6 +240,45 @@ VALUES
     '• Ich denke, du bist besonders gut in … (Я думаю, ты особенно хорош в ...)\n• Ein Beruf, der dazu passt, ist … (Профессия, которая подходит для этого - ...)\n• Besonders vorteilhaft ist … (Особенно выгодно в этой профессии ...)\n• Um dich vorzubereiten, kannst du … (Чтобы подготовиться, ты можешь ...)\n• Hast du schon eine Idee, welchen Beruf du wählen möchtest? (У тебя уже есть идея, какую профессию выбрать?)',
     '• Ich denke, du bist besonders gut in … (I think you are especially good at ...)\n• Ein Beruf, der dazu passt, ist … (A career that fits this is ...)\n• Besonders vorteilhaft ist … (A big advantage is ...)\n• Um dich vorzubereiten, kannst du … (To prepare, you can ...)\n• Hast du schon eine Idee, welchen Beruf du wählen möchtest? (Do you already have an idea of which career to choose?)',
     TRUE
+),
+(
+    UTC_TIMESTAMP(),
+    'Meine schönste Kindheitserinnerung',
+    'Моё самое красивое воспоминание из детства',
+    'My Most Beautiful Childhood Memory',
+    'Schreiben Sie eine E-Mail an einen Freund oder eine Freundin und berichten Sie über eine schöne Erinnerung aus Ihrer Kindheit. Gehen Sie dabei auf folgende Punkte ein:\n\n- Wann und wo hat es stattgefunden?\n- Mit wem waren Sie zusammen?\n- Was genau ist passiert?\n- Warum war dieses Erlebnis besonders für Sie?',
+    'Напишите письмо другу или подруге и расскажите о красивом воспоминании из детства. Затроньте следующие моменты:\n\n- Когда и где это произошло?\n- С кем вы были?\n- Что именно случилось?\n- Почему это воспоминание так важно для вас?',
+    'Write an email to a friend and talk about a beautiful childhood memory. Address the following points:\n\n- When and where did it happen?\n- Who were you with?\n- What exactly happened?\n- Why was this memory special for you?',
+    '• Eine meiner schönsten Kindheitserinnerungen ist …\n• Es passierte, als ich … Jahre alt war\n• Besonders schön war …\n• Ich werde es nie vergessen, weil …\n• Hast du eine besondere Erinnerung aus deiner Kindheit?',
+    '• Eine meiner schönsten Kindheitserinnerungen ist … (Одно из моих самых красивых воспоминаний из детства - ...)\n• Es passierte, als ich … Jahre alt war (Это случилось, когда мне было ... лет)\n• Besonders schön war … (Особенно приятно было ...)\n• Ich werde es nie vergessen, weil … (Я никогда этого не забуду, потому что ...)\n• Hast du eine besondere Erinnerung aus deiner Kindheit? (У тебя есть особенное воспоминание из детства?)',
+    '• Eine meiner schönsten Kindheitserinnerungen ist … (One of my most beautiful childhood memories is ...)\n• Es passierte, als ich … Jahre alt war (It happened when I was ... years old)\n• Besonders schön war … (It was especially nice ...)\n• Ich werde es nie vergessen, weil … (I will never forget it because ...)\n• Hast du eine besondere Erinnerung aus deiner Kindheit? (Do you have a special childhood memory?)',
+    TRUE
+),
+(
+    UTC_TIMESTAMP(),
+    'Ein Fest, das ich gefeiert habe',
+    'Праздник, который я отметил',
+    'A Celebration I Had',
+    'Schreiben Sie eine E-Mail an einen Freund oder eine Freundin und berichten Sie über ein Fest, das Sie gefeiert haben. Gehen Sie dabei auf folgende Punkte ein:\n\n- Um welches Fest handelte es sich?\n- Mit wem haben Sie gefeiert?\n- Wie wurde das Fest gefeiert?\n- Was hat Ihnen besonders gefallen?',
+    'Напишите письмо другу или подруге и расскажите о празднике, который вы отметили. Затроньте следующие моменты:\n\n- Какой это был праздник?\n- С кем вы его отмечали?\n- Как проходило празднование?\n- Что вам особенно понравилось?',
+    'Write an email to a friend and talk about a celebration you had. Address the following points:\n\n- What kind of celebration was it?\n- Who did you celebrate with?\n- How was the celebration?\n- What did you like the most?',
+    '• Ich habe … gefeiert\n• Ich war mit … zusammen\n• Wir haben … gemacht\n• Besonders schön war …\n• Welches Fest feierst du am liebsten?',
+    '• Ich habe … gefeiert (Я отметил ...)\n• Ich war mit … zusammen (Я был с ...)\n• Wir haben … gemacht (Мы ... делали)\n• Besonders schön war … (Особенно красиво было ...)\n• Welches Fest feierst du am liebsten? (Какой праздник тебе больше всего нравится отмечать?)',
+    '• Ich habe … gefeiert (I celebrated ...)\n• Ich war mit … zusammen (I was with ...)\n• Wir haben … gemacht (We did ...)\n• Besonders schön war … (It was especially nice ...)\n• Welches Fest feierst du am liebsten? (Which celebration do you like to celebrate the most?)',
+    TRUE
+),
+(
+    UTC_TIMESTAMP(),
+    'Meine Traumreise',
+    'Путешествие моей мечты',
+    'My Dream Trip',
+    'Schreiben Sie eine E-Mail an einen Freund oder eine Freundin und berichten Sie über Ihre Traumreise. Gehen Sie dabei auf folgende Punkte ein:\n\n- Wohin würden Sie reisen?\n- Warum möchten Sie dorthin reisen?\n- Was möchten Sie dort erleben oder sehen?\n- Mit wem würden Sie reisen?',
+    'Напишите письмо другу или подруге и расскажите о путешествии своей мечты. Затроньте следующие моменты:\n\n- Куда бы вы хотели поехать?\n- Почему именно туда?\n- Что бы вы хотели увидеть или пережить в этом месте?\n- С кем бы вы поехали?',
+    'Write an email to a friend and talk about your dream trip. Address the following points:\n\n- Where would you travel?\n- Why would you like to go there?\n- What would you like to experience or see there?\n- Who would you travel with?',
+    '• Mein Traum ist es, nach … zu reisen\n• Ich möchte dorthin, weil …\n• Besonders gerne würde ich … erleben\n• Ich würde mit … reisen\n• Wohin würdest du gerne reisen?',
+    '• Mein Traum ist es, nach … zu reisen (Моя мечта - поехать в ...)\n• Ich möchte dorthin, weil … (Я хочу туда, потому что ...)\n• Besonders gerne würde ich … erleben (Я бы особенно хотел испытать ...)\n• Ich würde mit … reisen (Я бы поехал с ...)\n• Wohin würdest du gerne reisen? (Куда бы ты хотел поехать?)',
+    '• Mein Traum ist es, nach … zu reisen (My dream is to travel to ...)\n• Ich möchte dorthin, weil … (I want to go there because ...)\n• Besonders gerne würde ich … erleben (I would especially love to experience ...)\n• Ich würde mit … reisen (I would travel with ...)\n• Wohin würdest du gerne reisen? (Where would you like to travel?)',
+    TRUE
 );
 
 
