@@ -90,6 +90,7 @@ public class AssignmentService {
         List<Long> assignedTopicIds = assignmentRepository.findAssignedTopicIdsByUserId(user.getId());
         List<AssignmentTopic> availableTopics = assignmentTopicService.getUnassignedActiveTopics(assignedTopicIds);
 
+        // TODO: come up with a better way of dealing with no topics left
         if (availableTopics.isEmpty()) {
             LOGGER.warn("User {} has no more new topics. Checking for skipped topics...", user.getTelegramId());
 
