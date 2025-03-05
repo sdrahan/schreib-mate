@@ -304,6 +304,10 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
 
         Assignment newAssignment;
         try {
+            if (!assignmentService.hasAvailableTopics(user)) {
+                sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(user.getLanguage()));
+                return;
+            }
             newAssignment = assignmentService.assignNewTopic(user);
         } catch (IllegalStateException e) {
             sendMessage(chatId, localizedMessagesService.errorNoTopicsLeft(user.getLanguage()));

@@ -85,10 +85,20 @@ public class AssignmentService {
         assignmentRepository.save(assignment);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = false)
     public boolean hasAvailableTopics(User user) {
         List<Long> assignedTopicIds = assignmentRepository.findAssignedTopicIdsByUserId(user.getId());
         List<AssignmentTopic> availableTopics = assignmentTopicService.getUnassignedActiveTopics(assignedTopicIds);
+
+        if (availableTopics.isEmpty()) {
+            LOGGER.warn("User {} has no more new topics. Checking for skipped topics...", user.getTelegramId());
+
+            int deletedCount = assignmentRepository.deleteCancelledAssignmentsByUserId(user.getId());
+            if (deletedCount > 0) {
+                LOGGER.info("Reset {} skipped topics for user {}.", deletedCount, user.getTelegramId());
+                return true;
+            }
+        }
         return !availableTopics.isEmpty();
     }
 }
