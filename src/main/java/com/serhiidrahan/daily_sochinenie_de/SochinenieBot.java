@@ -1,6 +1,7 @@
 package com.serhiidrahan.daily_sochinenie_de;
 
 import com.serhiidrahan.daily_sochinenie_de.entity.Assignment;
+import com.serhiidrahan.daily_sochinenie_de.entity.AssignmentTopic;
 import com.serhiidrahan.daily_sochinenie_de.entity.User;
 import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
 import com.serhiidrahan.daily_sochinenie_de.enums.Language;
@@ -334,16 +335,20 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     }
 
     private void sendAssignment(Long chatId, Assignment assignment, Language language) {
+        AssignmentTopic topic = assignment.getTopic();
         String topicText;
+        String descriptionText;
         if (language.equals(Language.DE)) {
-            topicText = assignment.getTopic().getTopic(language);
+            topicText = topic.getTopic(language);
+            descriptionText = topic.getDescription(language);
         } else {
-            topicText = assignment.getTopic().getTopic(language) + " (" + assignment.getTopic().getTopic(Language.DE) + ")";
+            topicText = topic.getTopic(language) + " (" + topic.getTopic(Language.DE) + ")";
+            descriptionText = topic.getDescription(Language.DE) + "\n\n- - - - - - - - - - - -\n\n" + topic.getDescription(language);
         }
         String assignmentText = localizedMessagesService.assignmentText(language,
                 topicText,
-                assignment.getTopic().getDescription(language),
-                assignment.getTopic().getKeywords(language));
+                descriptionText,
+                topic.getKeywords(language));
 
         Message message = sendMessageWithButton(chatId, assignmentText, localizedMessagesService.buttonIWantAnother(language), "new_assignment");
         assignmentService.setTelegramMessageId(assignment, message.getMessageId());
