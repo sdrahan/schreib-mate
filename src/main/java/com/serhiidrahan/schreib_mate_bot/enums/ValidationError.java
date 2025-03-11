@@ -1,4 +1,4 @@
-package com.serhiidrahan.daily_sochinenie_de.enums;
+package com.serhiidrahan.schreib_mate_bot.enums;
 
 public enum ValidationError {
     TOO_SHORT,

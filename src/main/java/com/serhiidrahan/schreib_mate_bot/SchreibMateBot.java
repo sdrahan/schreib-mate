@@ -1,16 +1,16 @@
-package com.serhiidrahan.daily_sochinenie_de;
+package com.serhiidrahan.schreib_mate_bot;
 
-import com.serhiidrahan.daily_sochinenie_de.entity.Assignment;
-import com.serhiidrahan.daily_sochinenie_de.entity.AssignmentTopic;
-import com.serhiidrahan.daily_sochinenie_de.entity.User;
-import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
-import com.serhiidrahan.daily_sochinenie_de.enums.ValidationError;
-import com.serhiidrahan.daily_sochinenie_de.exception.ChatGPTException;
-import com.serhiidrahan.daily_sochinenie_de.service.AssignmentService;
-import com.serhiidrahan.daily_sochinenie_de.service.ChatGPTService;
-import com.serhiidrahan.daily_sochinenie_de.service.LocalizedMessagesService;
-import com.serhiidrahan.daily_sochinenie_de.service.UserService;
+import com.serhiidrahan.schreib_mate_bot.entity.Assignment;
+import com.serhiidrahan.schreib_mate_bot.entity.AssignmentTopic;
+import com.serhiidrahan.schreib_mate_bot.entity.User;
+import com.serhiidrahan.schreib_mate_bot.enums.AssignmentState;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
+import com.serhiidrahan.schreib_mate_bot.enums.ValidationError;
+import com.serhiidrahan.schreib_mate_bot.exception.ChatGPTException;
+import com.serhiidrahan.schreib_mate_bot.service.AssignmentService;
+import com.serhiidrahan.schreib_mate_bot.service.ChatGPTService;
+import com.serhiidrahan.schreib_mate_bot.service.LocalizedMessagesService;
+import com.serhiidrahan.schreib_mate_bot.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,8 +43,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Component
-public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SochinenieBot.class);
+public class SchreibMateBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SchreibMateBot.class);
     private static final int MIN_SUBMISSION_LENGTH = 30;
     private static final int MAX_SUBMISSION_LENGTH = 4000;
     private static final int TELEGRAM_MESSAGE_LIMIT = 4000;
@@ -59,8 +59,8 @@ public class SochinenieBot implements SpringLongPollingBot, LongPollingSingleThr
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
 
-    public SochinenieBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
-                         LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
+    public SchreibMateBot(UserService userService, AssignmentService assignmentService, ChatGPTService chatGPTService,
+                          LocalizedMessagesService localizedMessagesService, @Value("${telegrambot.token}") String botToken) {
         this.userService = userService;
         this.assignmentService = assignmentService;
         this.chatGPTService = chatGPTService;

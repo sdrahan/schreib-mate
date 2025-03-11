@@ -1,5 +1,5 @@
-package com.serhiidrahan.daily_sochinenie_de.entity;
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
+package com.serhiidrahan.schreib_mate_bot.entity;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
 import jakarta.persistence.*;
 
 @Entity

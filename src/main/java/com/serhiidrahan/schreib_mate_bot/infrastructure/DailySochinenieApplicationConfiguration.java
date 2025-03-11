@@ -1,4 +1,4 @@
-package com.serhiidrahan.daily_sochinenie_de.infrastructure;
+package com.serhiidrahan.schreib_mate_bot.infrastructure;
 
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;

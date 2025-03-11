@@ -1,13 +1,13 @@
-package com.serhiidrahan.daily_sochinenie_de;
+package com.serhiidrahan.schreib_mate_bot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DailySochinenieDeApplication {
+public class SchreibMateBotApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(DailySochinenieDeApplication.class, args);
+        SpringApplication.run(SchreibMateBotApplication.class, args);
     }
 
 }

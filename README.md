@@ -1,1 +1,1 @@
-# daily-sochinenie-de
+# SchreibMate Telegram Bot

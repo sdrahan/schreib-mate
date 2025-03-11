@@ -1,6 +1,6 @@
-package com.serhiidrahan.daily_sochinenie_de.entity;
+package com.serhiidrahan.schreib_mate_bot.entity;
 
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;

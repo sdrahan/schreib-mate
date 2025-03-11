@@ -1,6 +1,6 @@
-package com.serhiidrahan.daily_sochinenie_de.repository;
+package com.serhiidrahan.schreib_mate_bot.repository;
 
-import com.serhiidrahan.daily_sochinenie_de.entity.User;
+import com.serhiidrahan.schreib_mate_bot.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

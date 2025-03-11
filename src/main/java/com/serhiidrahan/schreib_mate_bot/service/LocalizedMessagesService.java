@@ -1,7 +1,6 @@
-package com.serhiidrahan.daily_sochinenie_de.service;
+package com.serhiidrahan.schreib_mate_bot.service;
 
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
-import org.springframework.cglib.core.Local;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 

@@ -1,7 +1,7 @@
-package com.serhiidrahan.daily_sochinenie_de.repository;
+package com.serhiidrahan.schreib_mate_bot.repository;
 
-import com.serhiidrahan.daily_sochinenie_de.entity.Assignment;
-import com.serhiidrahan.daily_sochinenie_de.enums.AssignmentState;
+import com.serhiidrahan.schreib_mate_bot.entity.Assignment;
+import com.serhiidrahan.schreib_mate_bot.enums.AssignmentState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

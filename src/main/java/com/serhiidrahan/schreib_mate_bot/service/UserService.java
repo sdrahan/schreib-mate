@@ -1,8 +1,8 @@
-package com.serhiidrahan.daily_sochinenie_de.service;
+package com.serhiidrahan.schreib_mate_bot.service;
 
-import com.serhiidrahan.daily_sochinenie_de.entity.User;
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
-import com.serhiidrahan.daily_sochinenie_de.repository.UserRepository;
+import com.serhiidrahan.schreib_mate_bot.entity.User;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
+import com.serhiidrahan.schreib_mate_bot.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

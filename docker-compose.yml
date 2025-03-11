@@ -16,9 +16,9 @@ services:
       interval: 10s
       retries: 5
 
-  dailysochineniede:
+  schreibmatebot:
     build: .
-    container_name: daily-sochinenie-de
+    container_name: schreib-mate-bot
     restart: always
     env_file:
       - .env

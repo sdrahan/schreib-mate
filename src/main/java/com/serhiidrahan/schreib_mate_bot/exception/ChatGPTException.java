@@ -1,4 +1,4 @@
-package com.serhiidrahan.daily_sochinenie_de.exception;
+package com.serhiidrahan.schreib_mate_bot.exception;
 
 public class ChatGPTException extends Exception {
     public ChatGPTException(String message, Throwable cause) {

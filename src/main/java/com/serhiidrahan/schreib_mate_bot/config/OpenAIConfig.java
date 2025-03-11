@@ -1,4 +1,4 @@
-package com.serhiidrahan.daily_sochinenie_de.config;
+package com.serhiidrahan.schreib_mate_bot.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

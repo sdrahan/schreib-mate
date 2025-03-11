@@ -1,4 +1,4 @@
-package com.serhiidrahan.daily_sochinenie_de.entity;
+package com.serhiidrahan.schreib_mate_bot.entity;
 
 import jakarta.persistence.*;
 

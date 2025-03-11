@@ -1,7 +1,7 @@
-package com.serhiidrahan.daily_sochinenie_de.service;
+package com.serhiidrahan.schreib_mate_bot.service;
 
-import com.serhiidrahan.daily_sochinenie_de.entity.AssignmentTopic;
-import com.serhiidrahan.daily_sochinenie_de.repository.AssignmentTopicRepository;
+import com.serhiidrahan.schreib_mate_bot.entity.AssignmentTopic;
+import com.serhiidrahan.schreib_mate_bot.repository.AssignmentTopicRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

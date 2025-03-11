@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.serhiidrahan</groupId>
-	<artifactId>daily-sochinenie-de</artifactId>
+	<artifactId>schreib-mate-bot</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>daily-sochinenie-de</name>
-	<description>Daily Sochinenie DE</description>
+	<name>schreib-mate-bot</name>
+	<description>SchreibMate Bot</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

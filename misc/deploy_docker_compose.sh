@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd ~/daily-sochinenie-de
+cd ~/schreib-mate-bot
 echo "Pulling latest changes from Git..."
 git pull
 echo "Starting containers with the latest changes..."

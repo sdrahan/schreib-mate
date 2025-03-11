@@ -1,12 +1,12 @@
-package com.serhiidrahan.daily_sochinenie_de.service;
+package com.serhiidrahan.schreib_mate_bot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.serhiidrahan.daily_sochinenie_de.config.OpenAIConfig;
-import com.serhiidrahan.daily_sochinenie_de.enums.Language;
-import com.serhiidrahan.daily_sochinenie_de.exception.ChatGPTException;
+import com.serhiidrahan.schreib_mate_bot.config.OpenAIConfig;
+import com.serhiidrahan.schreib_mate_bot.enums.Language;
+import com.serhiidrahan.schreib_mate_bot.exception.ChatGPTException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
